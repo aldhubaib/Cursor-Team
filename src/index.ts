@@ -74,11 +74,8 @@ app.use(
 
 app.get("/sign-in", (_req: Request, res: Response) => {
   const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
-  const portal = accountPortalDomain(publishableKey);
-  const host = _req.get("host") ?? "cursor-team-production.up.railway.app";
-  const protocol = _req.get("x-forwarded-proto") ?? _req.protocol;
-  const redirectUrl = encodeURIComponent(`${protocol}://${host}/dashboard`);
-  res.redirect(`https://${portal}/sign-in?redirect_url=${redirectUrl}`);
+  const clerkDomain = decodeClerkDomain(publishableKey);
+  res.send(signInPage(publishableKey, clerkDomain));
 });
 
 app.get("/sign-out", (_req: Request, res: Response) => {
@@ -126,6 +123,136 @@ function decodeClerkDomain(publishableKey: string): string {
 function accountPortalDomain(publishableKey: string): string {
   const frontendApi = decodeClerkDomain(publishableKey);
   return frontendApi.replace(".clerk.accounts.dev", ".accounts.dev");
+}
+
+function signInPage(publishableKey: string, clerkDomain: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — Cursor Team</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #08080d;
+      color: #e0e0e8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .page {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+      width: 100%;
+      max-width: 440px;
+      padding: 24px;
+    }
+    .brand {
+      text-align: center;
+    }
+    .brand-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 22px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: -1px;
+    }
+    .brand h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    .brand p {
+      color: #7a7a8e;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    #sign-in-container {
+      width: 100%;
+      min-height: 360px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid #1e1e2e;
+      border-top-color: #8b5cf6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .footer {
+      color: #4a4a5e;
+      font-size: 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="brand">
+      <div class="brand-icon">CT</div>
+      <h1>Cursor Team</h1>
+      <p>AI team memory for your projects</p>
+    </div>
+    <div id="sign-in-container">
+      <div class="spinner"></div>
+    </div>
+    <div class="footer">Invite-only access</div>
+  </div>
+  <script>
+    const s = document.createElement('script');
+    s.setAttribute('data-clerk-publishable-key', '${publishableKey}');
+    s.async = true;
+    s.crossOrigin = 'anonymous';
+    s.src = 'https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js';
+    s.addEventListener('load', async () => {
+      try {
+        await window.Clerk.load();
+        if (window.Clerk.user) { window.location.href = '/dashboard'; return; }
+        const el = document.getElementById('sign-in-container');
+        el.innerHTML = '';
+        window.Clerk.mountSignIn(el, {
+          afterSignInUrl: '/dashboard',
+          afterSignUpUrl: '/dashboard',
+          appearance: {
+            variables: { colorPrimary: '#8b5cf6' },
+            elements: {
+              rootBox: { width: '100%' },
+              card: { background: 'transparent', boxShadow: 'none', border: 'none' }
+            }
+          }
+        });
+      } catch (err) {
+        document.getElementById('sign-in-container').innerHTML =
+          '<p style="color:#f43f5e;font-size:14px;">Failed to load. <a href="/sign-in" style="color:#8b5cf6;">Retry</a></p>';
+      }
+    });
+    s.addEventListener('error', () => {
+      document.getElementById('sign-in-container').innerHTML =
+        '<p style="color:#f43f5e;font-size:14px;">Failed to load. <a href="/sign-in" style="color:#8b5cf6;">Retry</a></p>';
+    });
+    document.body.appendChild(s);
+  </script>
+</body>
+</html>`;
 }
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
