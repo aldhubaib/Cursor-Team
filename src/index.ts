@@ -126,15 +126,7 @@ app.get("/sign-out", clerkMiddleware(), (_req: Request, res: Response) => {
 });
 
 app.get("/", (_req: Request, res: Response) => {
-  res.json({
-    name: "cursor-team",
-    version: "1.0.0",
-    description: "Cloud-based AI team memory for Cursor IDE",
-    endpoints: {
-      mcp: "/mcp",
-      dashboard: "/dashboard",
-    },
-  });
+  res.redirect("/dashboard");
 });
 
 app.get("/health", async (_req: Request, res: Response) => {
