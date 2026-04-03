@@ -74,11 +74,11 @@ app.use(
 
 app.get("/sign-in", (_req: Request, res: Response) => {
   const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
-  const clerkDomain = decodeClerkDomain(publishableKey);
+  const portal = accountPortalDomain(publishableKey);
   const host = _req.get("host") ?? "cursor-team-production.up.railway.app";
   const protocol = _req.get("x-forwarded-proto") ?? _req.protocol;
   const redirectUrl = encodeURIComponent(`${protocol}://${host}/dashboard`);
-  res.redirect(`https://${clerkDomain}/sign-in?redirect_url=${redirectUrl}`);
+  res.redirect(`https://${portal}/sign-in?redirect_url=${redirectUrl}`);
 });
 
 app.get("/sign-out", (_req: Request, res: Response) => {
@@ -121,6 +121,11 @@ function decodeClerkDomain(publishableKey: string): string {
   } catch {
     return "clerk.accounts.dev";
   }
+}
+
+function accountPortalDomain(publishableKey: string): string {
+  const frontendApi = decodeClerkDomain(publishableKey);
+  return frontendApi.replace(".clerk.accounts.dev", ".accounts.dev");
 }
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
