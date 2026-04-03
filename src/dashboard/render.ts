@@ -43,6 +43,8 @@ export function renderPage(title: string, body: string): string {
       position: fixed;
       height: 100vh;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
 
     nav .logo {
@@ -261,11 +263,13 @@ export function renderPage(title: string, body: string): string {
   <div class="layout">
     <nav>
       <div class="logo">Cursor Team</div>
-      <a href="/dashboard${getTokenParam()}" class="${title === "Overview" ? "active" : ""}">Overview</a>
-      <a href="/dashboard/projects${getTokenParam()}" class="${title === "Projects" ? "active" : ""}">Projects</a>
-      <a href="/dashboard/team${getTokenParam()}" class="${title === "Team" ? "active" : ""}">Team</a>
-      <a href="/dashboard/memories${getTokenParam()}" class="${title === "Memories" ? "active" : ""}">Memories</a>
-      <a href="/dashboard/playbook${getTokenParam()}" class="${title === "Playbook" ? "active" : ""}">Playbook</a>
+      <a href="/dashboard" class="${title === "Overview" ? "active" : ""}">Overview</a>
+      <a href="/dashboard/projects" class="${title === "Projects" ? "active" : ""}">Projects</a>
+      <a href="/dashboard/team" class="${title === "Team" ? "active" : ""}">Team</a>
+      <a href="/dashboard/memories" class="${title === "Memories" ? "active" : ""}">Memories</a>
+      <a href="/dashboard/playbook" class="${title === "Playbook" ? "active" : ""}">Playbook</a>
+      <a href="/dashboard/settings" class="${title === "Settings" ? "active" : ""}">Settings</a>
+      <a href="/sign-out" style="margin-top: auto; color: var(--rose);">Sign Out</a>
     </nav>
     <main>
       <h1>${title}</h1>
@@ -276,7 +280,3 @@ export function renderPage(title: string, body: string): string {
 </html>`;
 }
 
-function getTokenParam(): string {
-  const token = process.env.API_SECRET_TOKEN;
-  return token ? `?token=${token}` : "";
-}

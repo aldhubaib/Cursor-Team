@@ -1,11 +1,14 @@
 import express, { Request, Response } from "express";
+import { clerkMiddleware, requireAuth } from "@clerk/express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpServer } from "./mcp/server.js";
 import { dashboardRouter } from "./dashboard/routes.js";
+import { dashboardAccess } from "./dashboard/access.js";
 import { prisma } from "./db.js";
 
 const app = express();
 app.use(express.json());
+app.use(clerkMiddleware());
 
 function authMiddleware(req: Request, res: Response, next: () => void) {
   const auth = req.headers.authorization;
@@ -62,7 +65,54 @@ app.delete("/mcp", (_req: Request, res: Response) => {
   });
 });
 
-app.use("/dashboard", dashboardRouter);
+app.use(
+  "/dashboard",
+  requireAuth({ signInUrl: "/sign-in" }),
+  dashboardAccess,
+  dashboardRouter,
+);
+
+app.get("/sign-in", (_req: Request, res: Response) => {
+  const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — Cursor Team</title>
+  <style>
+    body { margin: 0; background: #0a0a0f; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: system-ui; }
+    #sign-in { min-height: 400px; }
+  </style>
+</head>
+<body>
+  <div id="sign-in"></div>
+  <script async crossorigin="anonymous" data-clerk-publishable-key="${publishableKey}" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
+  <script>
+    window.addEventListener('load', async () => {
+      await Clerk.load();
+      if (Clerk.user) { window.location.href = '/dashboard'; return; }
+      Clerk.mountSignIn(document.getElementById('sign-in'), { afterSignInUrl: '/dashboard', afterSignUpUrl: '/dashboard' });
+    });
+  </script>
+</body>
+</html>`);
+});
+
+app.get("/sign-out", (_req: Request, res: Response) => {
+  const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
+  res.send(`<!DOCTYPE html>
+<html><head><title>Signing out…</title></head><body>
+<script async crossorigin="anonymous" data-clerk-publishable-key="${publishableKey}" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
+<script>
+  window.addEventListener('load', async () => {
+    await Clerk.load();
+    await Clerk.signOut();
+    window.location.href = '/sign-in';
+  });
+</script>
+</body></html>`);
+});
 
 app.get("/", (_req: Request, res: Response) => {
   res.json({

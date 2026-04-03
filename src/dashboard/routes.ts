@@ -1,27 +1,11 @@
-import { Router, Request, Response } from "express";
+import express, { Router, Request, Response } from "express";
 import { prisma } from "../db.js";
 import { TEAM_MEMBERS } from "../types.js";
 import { renderPage } from "./render.js";
+import type { DashboardLocals } from "./access.js";
 
 export const dashboardRouter = Router();
-
-function requireAuth(req: Request, res: Response, next: () => void) {
-  const token = req.query.token as string | undefined;
-  if (token === process.env.API_SECRET_TOKEN) {
-    return next();
-  }
-  res.status(401).send(
-    renderPage(
-      "Unauthorized",
-      `<div class="card">
-        <h2>Access Denied</h2>
-        <p>Add <code>?token=YOUR_SECRET</code> to the URL.</p>
-      </div>`,
-    ),
-  );
-}
-
-dashboardRouter.use(requireAuth);
+dashboardRouter.use(express.urlencoded({ extended: false }));
 
 dashboardRouter.get("/", async (_req: Request, res: Response) => {
   const totalMemories = await prisma.memory.count();
@@ -164,7 +148,6 @@ dashboardRouter.get("/memories", async (req: Request, res: Response) => {
   ]);
 
   const totalPages = Math.ceil(total / perPage);
-  const token = req.query.token as string;
 
   const filters = `
     <div class="filters">
@@ -210,9 +193,9 @@ dashboardRouter.get("/memories", async (req: Request, res: Response) => {
   const pagination =
     totalPages > 1
       ? `<div class="pagination">
-          ${page > 1 ? `<a href="?token=${token}&page=${page - 1}${type ? `&type=${type}` : ""}${author ? `&author=${author}` : ""}">← Prev</a>` : ""}
+          ${page > 1 ? `<a href="?page=${page - 1}${type ? `&type=${type}` : ""}${author ? `&author=${author}` : ""}">← Prev</a>` : ""}
           <span>Page ${page} of ${totalPages} (${total} total)</span>
-          ${page < totalPages ? `<a href="?token=${token}&page=${page + 1}${type ? `&type=${type}` : ""}${author ? `&author=${author}` : ""}">Next →</a>` : ""}
+          ${page < totalPages ? `<a href="?page=${page + 1}${type ? `&type=${type}` : ""}${author ? `&author=${author}` : ""}">Next →</a>` : ""}
         </div>`
       : "";
 
@@ -265,6 +248,115 @@ dashboardRouter.get("/playbook", async (_req: Request, res: Response) => {
   res.send(
     renderPage("Playbook", sections || `<div class="card"><p>No playbook rules yet.</p></div>`),
   );
+});
+
+// ── Settings (admin only) ────────────────────────────────────────────
+
+dashboardRouter.get("/settings", async (_req: Request, res: Response) => {
+  const current = (res.locals as DashboardLocals).dashboardUser;
+  if (current.role !== "admin") {
+    res.status(403).send(renderPage("Settings", `<div class="card"><p>Only admins can access settings.</p></div>`));
+    return;
+  }
+
+  const users = await prisma.dashboardUser.findMany({
+    orderBy: { createdAt: "asc" },
+  });
+
+  const message = (res.locals as Record<string, unknown>).flashMessage as string | undefined;
+
+  const rows = users
+    .map(
+      (u) =>
+        `<tr>
+          <td>${escapeHtml(u.email)}</td>
+          <td>${escapeHtml(u.name ?? "—")}</td>
+          <td><span class="badge badge-${u.role === "admin" ? "decision" : "pattern"}">${u.role}</span></td>
+          <td>${u.clerkId ? "Signed in" : "Invited"}</td>
+          <td>${timeAgo(u.createdAt)}</td>
+          <td>${u.id !== current.id
+            ? `<form method="POST" action="/dashboard/settings/remove" style="display:inline;">
+                <input type="hidden" name="userId" value="${u.id}" />
+                <button type="submit" style="background:none;border:none;color:var(--rose);cursor:pointer;font-size:13px;">Remove</button>
+              </form>`
+            : '<span style="color:var(--text-dim);">You</span>'
+          }</td>
+        </tr>`,
+    )
+    .join("");
+
+  res.send(
+    renderPage(
+      "Settings",
+      `
+      ${message ? `<div class="card" style="border-color:var(--accent);margin-bottom:16px;"><p>${message}</p></div>` : ""}
+      <div class="card">
+        <h3>Add Team Member</h3>
+        <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px;">They'll be able to sign in with this email via Clerk.</p>
+        <form method="POST" action="/dashboard/settings/add" style="display:flex;gap:8px;align-items:center;">
+          <input type="email" name="email" placeholder="colleague@company.com" required
+            style="flex:1;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;" />
+          <select name="role" style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;">
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button type="submit" style="padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;">Add</button>
+        </form>
+      </div>
+      <h2>Users (${users.length})</h2>
+      <table>
+        <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Added</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      `,
+    ),
+  );
+});
+
+dashboardRouter.post("/settings/add", async (req: Request, res: Response) => {
+  const current = (res.locals as DashboardLocals).dashboardUser;
+  if (current.role !== "admin") {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
+  const email = (req.body.email as string)?.trim().toLowerCase();
+  const role = req.body.role === "admin" ? "admin" : "member";
+
+  if (!email) {
+    res.redirect("/dashboard/settings");
+    return;
+  }
+
+  const existing = await prisma.dashboardUser.findUnique({ where: { email } });
+  if (existing) {
+    res.redirect("/dashboard/settings");
+    return;
+  }
+
+  await prisma.dashboardUser.create({
+    data: { email, role },
+  });
+
+  res.redirect("/dashboard/settings");
+});
+
+dashboardRouter.post("/settings/remove", async (req: Request, res: Response) => {
+  const current = (res.locals as DashboardLocals).dashboardUser;
+  if (current.role !== "admin") {
+    res.status(403).send("Forbidden");
+    return;
+  }
+
+  const userId = req.body.userId as string;
+
+  if (userId === current.id) {
+    res.redirect("/dashboard/settings");
+    return;
+  }
+
+  await prisma.dashboardUser.delete({ where: { id: userId } }).catch(() => {});
+  res.redirect("/dashboard/settings");
 });
 
 function escapeHtml(str: string): string {

@@ -53,6 +53,22 @@ model Memory {
   @@map("memories")
 }
 
+enum DashboardRole {
+  admin
+  member
+}
+
+model DashboardUser {
+  id        String        @id @default(uuid())
+  clerkId   String?       @unique
+  email     String        @unique
+  name      String?
+  role      DashboardRole @default(member)
+  createdAt DateTime      @default(now())
+
+  @@map("dashboard_users")
+}
+
 model Playbook {
   id        String   @id @default(uuid())
   role      String
