@@ -84,10 +84,20 @@ app.get("/sign-in", (_req: Request, res: Response) => {
 app.get("/sign-out", (_req: Request, res: Response) => {
   const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
   const clerkDomain = decodeClerkDomain(publishableKey);
-  const host = _req.get("host") ?? "cursor-team-production.up.railway.app";
-  const protocol = _req.get("x-forwarded-proto") ?? _req.protocol;
-  const redirectUrl = encodeURIComponent(`${protocol}://${host}/sign-in`);
-  res.redirect(`https://${clerkDomain}/sign-out?redirect_url=${redirectUrl}`);
+  res.send(`<!DOCTYPE html>
+<html><head><title>Signing out…</title>
+<style>body{margin:0;background:#0a0a0f;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:system-ui;color:#7a7a8e;}</style>
+</head><body><p>Signing out...</p>
+<script src="https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+  data-clerk-publishable-key="${publishableKey}" crossorigin="anonymous"></script>
+<script>
+(async()=>{
+  await window.Clerk.load();
+  await window.Clerk.signOut();
+  window.location.href='/sign-in';
+})();
+</script>
+</body></html>`);
 });
 
 app.get("/", (_req: Request, res: Response) => {
