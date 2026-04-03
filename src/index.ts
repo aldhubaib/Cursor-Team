@@ -8,7 +8,6 @@ import { prisma } from "./db.js";
 
 const app = express();
 app.use(express.json());
-app.use(clerkMiddleware());
 
 function authMiddleware(req: Request, res: Response, next: () => void) {
   const auth = req.headers.authorization;
@@ -67,12 +66,13 @@ app.delete("/mcp", (_req: Request, res: Response) => {
 
 app.use(
   "/dashboard",
+  clerkMiddleware(),
   requireAuth({ signInUrl: "/sign-in" }),
   dashboardAccess,
   dashboardRouter,
 );
 
-app.get("/sign-in", (_req: Request, res: Response) => {
+app.get("/sign-in", clerkMiddleware(), (_req: Request, res: Response) => {
   const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -99,7 +99,7 @@ app.get("/sign-in", (_req: Request, res: Response) => {
 </html>`);
 });
 
-app.get("/sign-out", (_req: Request, res: Response) => {
+app.get("/sign-out", clerkMiddleware(), (_req: Request, res: Response) => {
   const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
   res.send(`<!DOCTYPE html>
 <html><head><title>Signing out…</title></head><body>
