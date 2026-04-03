@@ -83,29 +83,41 @@ app.get("/sign-out", (_req: Request, res: Response) => {
   const clerkDomain = decodeClerkDomain(publishableKey);
   res.send(`<!DOCTYPE html>
 <html><head><title>Signing out…</title>
-<style>body{margin:0;background:#0a0a0f;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:system-ui;color:#7a7a8e;}</style>
-</head><body><p>Signing out...</p>
-<script src="https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-  data-clerk-publishable-key="${publishableKey}" crossorigin="anonymous"></script>
+<style>body{margin:0;background:#0a0a0f;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:'Inter',system-ui,sans-serif;color:#7a7a8e;}
+.msg{text-align:center;}.spinner{display:inline-block;width:20px;height:20px;border:2px solid #3a3a4e;border-top-color:#8b5cf6;border-radius:50%;animation:spin .6s linear infinite;margin-right:8px;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg)}}</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+</head><body><div class="msg"><span class="spinner"></span>Signing out...</div>
 <script>
-// #region agent log
-fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page',message:'sign-out page loaded',data:{clerkAvailable:typeof window.Clerk !== 'undefined'},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-// #endregion
 (async()=>{
   try {
     // #region agent log
-    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:clerk-load',message:'starting Clerk.load()',data:{clerkExists:!!window.Clerk},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:start',message:'sign-out page starting',data:{},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
     // #endregion
+    const script = document.createElement('script');
+    script.src = 'https://${clerkDomain}/npm/@clerk/clerk-js@5/dist/clerk.browser.js';
+    script.crossOrigin = 'anonymous';
+    script.setAttribute('data-clerk-publishable-key', '${publishableKey}');
+    await new Promise((resolve, reject) => {
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
     await window.Clerk.load();
     // #region agent log
-    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:clerk-loaded',message:'Clerk loaded, calling signOut',data:{},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:loaded',message:'Clerk loaded, calling signOut',data:{hasUser:!!window.Clerk.user,hasSession:!!window.Clerk.session},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
     // #endregion
     await window.Clerk.signOut();
-    window.location.href='/sign-in';
+    // #region agent log
+    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:done',message:'signOut resolved',data:{hasUser:!!window.Clerk.user,hasSession:!!window.Clerk.session},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+    // #endregion
+    window.location.replace('/sign-in');
   } catch(e) {
     // #region agent log
     fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:error',message:'sign-out error',data:{error:e?.message||String(e)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
     // #endregion
+    document.querySelector('.msg').textContent = 'Sign out failed. Redirecting...';
+    window.location.replace('/sign-in');
   }
 })();
 </script>
@@ -280,7 +292,7 @@ function signInPage(publishableKey: string, clerkDomain: string): string {
         fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:clerk-loaded',message:'Clerk.load() complete',data:{user:!!window.Clerk.user},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
         // #endregion
         if (window.Clerk.user) {
-          window.location.href = '/dashboard';
+          window.location.replace('/dashboard');
           return;
         }
         const el = document.getElementById('sign-in-widget');
