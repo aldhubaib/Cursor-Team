@@ -74,8 +74,12 @@ app.use(
 
 app.get("/sign-in", (_req: Request, res: Response) => {
   const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
-  const clerkDomain = decodeClerkDomain(publishableKey);
-  res.send(signInPage(publishableKey, clerkDomain));
+  const portal = accountPortalDomain(publishableKey);
+  const host = _req.get("host") ?? "cursor-team-production.up.railway.app";
+  const protocol = _req.get("x-forwarded-proto") ?? _req.protocol;
+  const redirectUrl = encodeURIComponent(`${protocol}://${host}/dashboard`);
+  const clerkSignIn = `https://${portal}/sign-in?redirect_url=${redirectUrl}`;
+  res.send(signInPage(clerkSignIn));
 });
 
 app.get("/sign-out", (_req: Request, res: Response) => {
@@ -125,7 +129,7 @@ function accountPortalDomain(publishableKey: string): string {
   return frontendApi.replace(".clerk.accounts.dev", ".accounts.dev");
 }
 
-function signInPage(publishableKey: string, clerkDomain: string): string {
+function signInPage(clerkSignInUrl: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -149,60 +153,43 @@ function signInPage(publishableKey: string, clerkDomain: string): string {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 32px;
+      gap: 40px;
       width: 100%;
-      max-width: 440px;
+      max-width: 400px;
       padding: 24px;
+      animation: fadeIn 0.4s ease;
     }
-    .brand {
-      text-align: center;
-    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .brand { text-align: center; }
     .brand-icon {
-      width: 48px;
-      height: 48px;
+      width: 56px; height: 56px;
       background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-      border-radius: 14px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
-      font-size: 22px;
-      font-weight: 700;
-      color: white;
-      letter-spacing: -1px;
+      border-radius: 16px;
+      display: inline-flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+      font-size: 24px; font-weight: 700; color: white; letter-spacing: -1px;
+      box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
     }
-    .brand h1 {
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      margin-bottom: 6px;
+    .brand h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
+    .brand p { color: #7a7a8e; font-size: 15px; line-height: 1.5; }
+    .sign-in-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 14px 24px;
+      background: #8b5cf6; color: white;
+      border: none; border-radius: 10px;
+      font-family: inherit; font-size: 15px; font-weight: 600;
+      cursor: pointer; text-decoration: none;
+      transition: background 0.15s, transform 0.1s;
     }
-    .brand p {
-      color: #7a7a8e;
-      font-size: 14px;
-      line-height: 1.5;
+    .sign-in-btn:hover { background: #7c3aed; }
+    .sign-in-btn:active { transform: scale(0.98); }
+    .sign-in-btn svg { width: 18px; height: 18px; }
+    .divider {
+      width: 100%; display: flex; align-items: center; gap: 12px;
+      color: #3a3a4e; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
     }
-    #sign-in-container {
-      width: 100%;
-      min-height: 360px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .spinner {
-      width: 28px;
-      height: 28px;
-      border: 3px solid #1e1e2e;
-      border-top-color: #8b5cf6;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .footer {
-      color: #4a4a5e;
-      font-size: 12px;
-      text-align: center;
-    }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #1e1e2e; }
+    .footer { color: #3a3a4e; font-size: 12px; text-align: center; }
   </style>
 </head>
 <body>
@@ -212,45 +199,12 @@ function signInPage(publishableKey: string, clerkDomain: string): string {
       <h1>Cursor Team</h1>
       <p>AI team memory for your projects</p>
     </div>
-    <div id="sign-in-container">
-      <div class="spinner"></div>
-    </div>
+    <a href="${clerkSignInUrl}" class="sign-in-btn">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+      Sign in to continue
+    </a>
     <div class="footer">Invite-only access</div>
   </div>
-  <script>
-    const s = document.createElement('script');
-    s.setAttribute('data-clerk-publishable-key', '${publishableKey}');
-    s.async = true;
-    s.crossOrigin = 'anonymous';
-    s.src = 'https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js';
-    s.addEventListener('load', async () => {
-      try {
-        await window.Clerk.load();
-        if (window.Clerk.user) { window.location.href = '/dashboard'; return; }
-        const el = document.getElementById('sign-in-container');
-        el.innerHTML = '';
-        window.Clerk.mountSignIn(el, {
-          afterSignInUrl: '/dashboard',
-          afterSignUpUrl: '/dashboard',
-          appearance: {
-            variables: { colorPrimary: '#8b5cf6' },
-            elements: {
-              rootBox: { width: '100%' },
-              card: { background: 'transparent', boxShadow: 'none', border: 'none' }
-            }
-          }
-        });
-      } catch (err) {
-        document.getElementById('sign-in-container').innerHTML =
-          '<p style="color:#f43f5e;font-size:14px;">Failed to load. <a href="/sign-in" style="color:#8b5cf6;">Retry</a></p>';
-      }
-    });
-    s.addEventListener('error', () => {
-      document.getElementById('sign-in-container').innerHTML =
-        '<p style="color:#f43f5e;font-size:14px;">Failed to load. <a href="/sign-in" style="color:#8b5cf6;">Retry</a></p>';
-    });
-    document.body.appendChild(s);
-  </script>
 </body>
 </html>`;
 }
