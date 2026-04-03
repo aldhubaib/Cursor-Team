@@ -90,17 +90,22 @@ app.get("/sign-in", clerkMiddleware(), (_req: Request, res: Response) => {
 </head>
 <body>
   <div id="sign-in"><div class="loading"><p>Loading sign-in...</p></div></div>
-  <script async crossorigin="anonymous" data-clerk-publishable-key="${publishableKey}"
-    src="https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
+  <script
+    crossorigin="anonymous"
+    data-clerk-publishable-key="${publishableKey}"
+    src="https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+    type="text/javascript"
+  ></script>
   <script>
-    window.addEventListener('load', async () => {
-      await Clerk.load();
-      if (Clerk.user) { window.location.href = '/dashboard'; return; }
-      Clerk.mountSignIn(document.getElementById('sign-in'), {
+    async function initClerk() {
+      await window.Clerk.load();
+      if (window.Clerk.user) { window.location.href = '/dashboard'; return; }
+      window.Clerk.mountSignIn(document.getElementById('sign-in'), {
         afterSignInUrl: '/dashboard',
         afterSignUpUrl: '/dashboard'
       });
-    });
+    }
+    initClerk();
   </script>
 </body>
 </html>`);
@@ -113,14 +118,18 @@ app.get("/sign-out", clerkMiddleware(), (_req: Request, res: Response) => {
 <html><head><title>Signing out…</title>
 <style>body { margin:0; background:#0a0a0f; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:system-ui; color:#7a7a8e; }</style>
 </head><body><p>Signing out...</p>
-<script async crossorigin="anonymous" data-clerk-publishable-key="${publishableKey}"
-  src="https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
+<script
+  crossorigin="anonymous"
+  data-clerk-publishable-key="${publishableKey}"
+  src="https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+  type="text/javascript"
+></script>
 <script>
-  window.addEventListener('load', async () => {
-    await Clerk.load();
-    await Clerk.signOut();
+  (async () => {
+    await window.Clerk.load();
+    await window.Clerk.signOut();
     window.location.href = '/sign-in';
-  });
+  })();
 </script>
 </body></html>`);
 });
