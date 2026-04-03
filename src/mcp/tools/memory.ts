@@ -9,7 +9,7 @@ import type { OrgContext } from "../../context.js";
 export function registerMemoryTools(server: McpServer, ctx: OrgContext) {
   server.registerTool("memory_store", {
     description:
-      "Store a new memory (decision, pattern, lesson, prompt template, review finding, debug fix, or config). This is how the team learns.",
+      "Store a new memory (decision, pattern, lesson, prompt template, review finding, debug fix, config, or design). This is how the team learns.",
     inputSchema: {
       type: z.enum(MEMORY_TYPES),
       content: z.string().describe("The knowledge to store"),

@@ -6,6 +6,7 @@ export const TEAM_MEMBERS = {
   omar: { name: "Omar", role: "Debugger" },
   dana: { name: "Dana", role: "Prompt Engineer" },
   kai: { name: "Kai", role: "DevOps" },
+  tala: { name: "Tala", role: "Design Director" },
 } as const;
 
 export type TeamMemberId = keyof typeof TEAM_MEMBERS;
@@ -18,6 +19,7 @@ export const MEMORY_TYPES = [
   "review",
   "debug",
   "config",
+  "design",
 ] as const;
 
 export type MemoryType = (typeof MEMORY_TYPES)[number];
