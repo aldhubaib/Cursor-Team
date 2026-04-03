@@ -268,6 +268,7 @@ export function renderPage(title: string, body: string): string {
       <a href="/dashboard/team" class="${title === "Team" ? "active" : ""}">Team</a>
       <a href="/dashboard/memories" class="${title === "Memories" ? "active" : ""}">Memories</a>
       <a href="/dashboard/playbook" class="${title === "Playbook" ? "active" : ""}">Playbook</a>
+      <a href="/dashboard/connect" class="${title === "Connect" ? "active" : ""}">Connect</a>
       <a href="/dashboard/settings" class="${title === "Settings" ? "active" : ""}">Settings</a>
       <a href="/sign-out" style="margin-top: auto; color: var(--rose);">Sign Out</a>
     </nav>

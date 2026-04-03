@@ -250,6 +250,165 @@ dashboardRouter.get("/playbook", async (_req: Request, res: Response) => {
   );
 });
 
+// ── Connect ──────────────────────────────────────────────────────────
+
+dashboardRouter.get("/connect", (req: Request, res: Response) => {
+  const host = req.get("host") ?? "cursor-team-production.up.railway.app";
+  const protocol = req.get("x-forwarded-proto") ?? req.protocol;
+  const mcpUrl = `${protocol}://${host}/mcp`;
+  const token = process.env.API_SECRET_TOKEN ?? "";
+
+  const mcpConfig = token
+    ? JSON.stringify(
+        { mcpServers: { "cursor-team": { url: mcpUrl, headers: { Authorization: `Bearer ${token}` } } } },
+        null,
+        2,
+      )
+    : JSON.stringify(
+        { mcpServers: { "cursor-team": { url: mcpUrl } } },
+        null,
+        2,
+      );
+
+  const mergeNote = `If you already have a <code>~/.cursor/mcp.json</code>, add the <code>"cursor-team"</code> entry inside your existing <code>"mcpServers"</code> object — don't replace the whole file.`;
+
+  res.send(
+    renderPage(
+      "Connect",
+      `
+      <p style="color:var(--text-dim);margin-bottom:24px;">Connect any Cursor project to this team server. Choose one of the methods below.</p>
+
+      <div class="card">
+        <h3>Option 1 — One-liner (recommended)</h3>
+        <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px;">
+          Run this in your terminal. It creates <code>~/.cursor/mcp.json</code> if it doesn't exist,
+          or merges the cursor-team entry into your existing config.
+        </p>
+        <div style="position:relative;">
+          <pre id="install-cmd" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px 16px;font-size:13px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;line-height:1.5;">curl -sL ${protocol}://${host}/dashboard/connect/install | bash</pre>
+          <button onclick="copyText('install-cmd')" style="position:absolute;top:8px;right:8px;background:var(--accent);color:white;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:600;">Copy</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Option 2 — Manual config</h3>
+        <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px;">
+          Copy this JSON into <code>~/.cursor/mcp.json</code> (global, all projects) or <code>.cursor/mcp.json</code> in a specific project.
+        </p>
+        <p style="color:var(--amber);font-size:12px;margin-bottom:12px;">${mergeNote}</p>
+        <div style="position:relative;">
+          <pre id="mcp-config" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px 16px;font-size:13px;overflow-x:auto;white-space:pre;line-height:1.5;">${escapeHtml(mcpConfig)}</pre>
+          <button onclick="copyText('mcp-config')" style="position:absolute;top:8px;right:8px;background:var(--accent);color:white;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:600;">Copy</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>After connecting</h3>
+        <ol style="color:var(--text-dim);font-size:14px;line-height:2;padding-left:20px;">
+          <li>Reload Cursor — <code>Cmd+Shift+P</code> → <strong>Reload Window</strong></li>
+          <li>Open any project — the agent now has access to 12 team tools</li>
+          <li>Try: <em>"Register this project with cursor-team"</em> or <em>"Search team memories for auth"</em></li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h3>Available tools</h3>
+        <table>
+          <thead><tr><th>Category</th><th>Tool</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>Memory</td><td><code>memory_store</code></td><td>Store a decision, pattern, lesson, or config</td></tr>
+            <tr><td>Memory</td><td><code>memory_search</code></td><td>Semantic search across all team knowledge</td></tr>
+            <tr><td>Memory</td><td><code>memory_list</code></td><td>List memories with filters</td></tr>
+            <tr><td>Memory</td><td><code>memory_delete</code></td><td>Remove a memory</td></tr>
+            <tr><td>Project</td><td><code>project_register</code></td><td>Register a new project with its tech stack</td></tr>
+            <tr><td>Project</td><td><code>project_get</code></td><td>Get project details</td></tr>
+            <tr><td>Project</td><td><code>project_list</code></td><td>List all registered projects</td></tr>
+            <tr><td>Playbook</td><td><code>playbook_get</code></td><td>Get rules for a team member role</td></tr>
+            <tr><td>Playbook</td><td><code>playbook_update</code></td><td>Update a role's playbook rules</td></tr>
+            <tr><td>Bootstrap</td><td><code>team_bootstrap</code></td><td>Load full team context for a project</td></tr>
+            <tr><td>Bootstrap</td><td><code>team_stats</code></td><td>Get team-wide statistics</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <script>
+        function copyText(id) {
+          const el = document.getElementById(id);
+          navigator.clipboard.writeText(el.textContent).then(() => {
+            const btn = el.parentElement.querySelector('button');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+          });
+        }
+      </script>
+      `,
+    ),
+  );
+});
+
+dashboardRouter.get("/connect/install", (req: Request, res: Response) => {
+  const host = req.get("host") ?? "cursor-team-production.up.railway.app";
+  const protocol = req.get("x-forwarded-proto") ?? req.protocol;
+  const mcpUrl = `${protocol}://${host}/mcp`;
+  const token = process.env.API_SECRET_TOKEN ?? "";
+
+  const serverEntry = token
+    ? `{ "url": "${mcpUrl}", "headers": { "Authorization": "Bearer ${token}" } }`
+    : `{ "url": "${mcpUrl}" }`;
+
+  const script = `#!/bin/bash
+set -e
+
+CONFIG="$HOME/.cursor/mcp.json"
+mkdir -p "$HOME/.cursor"
+
+if [ ! -f "$CONFIG" ]; then
+  cat > "$CONFIG" << 'ENDCONFIG'
+{
+  "mcpServers": {
+    "cursor-team": ${serverEntry}
+  }
+}
+ENDCONFIG
+  echo "✓ Created $CONFIG with cursor-team server"
+else
+  if command -v python3 &>/dev/null; then
+    python3 -c "
+import json, sys
+with open('$CONFIG', 'r') as f:
+    cfg = json.load(f)
+cfg.setdefault('mcpServers', {})
+cfg['mcpServers']['cursor-team'] = json.loads('${serverEntry.replace(/'/g, "\\'")}')
+with open('$CONFIG', 'w') as f:
+    json.dump(cfg, f, indent=2)
+print('✓ Added cursor-team to existing', '$CONFIG')
+"
+  elif command -v node &>/dev/null; then
+    node -e "
+const fs = require('fs');
+const cfg = JSON.parse(fs.readFileSync('$CONFIG', 'utf8'));
+cfg.mcpServers = cfg.mcpServers || {};
+cfg.mcpServers['cursor-team'] = JSON.parse('${serverEntry.replace(/'/g, "\\'")}');
+fs.writeFileSync('$CONFIG', JSON.stringify(cfg, null, 2));
+console.log('✓ Added cursor-team to existing', '$CONFIG');
+"
+  else
+    echo "⚠  $CONFIG already exists. Please add cursor-team manually."
+    echo "   Entry to add inside mcpServers:"
+    echo '   "cursor-team": ${serverEntry}'
+    exit 1
+  fi
+fi
+
+echo ""
+echo "Next: Reload Cursor (Cmd+Shift+P → Reload Window)"
+echo "Then try: \\"Register this project with cursor-team\\""
+`;
+
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.send(script);
+});
+
 // ── Settings (admin only) ────────────────────────────────────────────
 
 dashboardRouter.get("/settings", async (_req: Request, res: Response) => {
