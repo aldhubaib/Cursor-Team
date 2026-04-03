@@ -1,0 +1,26 @@
+---
+description: Workflow for updating team member instructions and playbook
+alwaysApply: true
+---
+
+# Team Update Workflow
+
+When the user asks to improve, update, or change instructions for any team member (sam, raya, kai, dana, omar, alex, tala, nizek, or any agent):
+
+1. **Update the local SKILL.md** — edit the file in `~/.cursor/skills-cursor/<name>/SKILL.md`
+2. **Update the cloud playbook** — always sync the changes using the `playbook_update` MCP tool so the rules appear on the [Cursor Team dashboard](https://cursor-team-production.up.railway.app/dashboard/playbook)
+
+Both must be updated. Never update one without the other.
+
+### Role mapping for playbook_update
+
+| Agent | Playbook role |
+|-------|--------------|
+| sam | architect |
+| raya | reviewer |
+| kai | debugger |
+| dana | pm |
+| omar | prompt_engineer |
+| alex | devops |
+| tala | team_builder |
+| nizek | developer |
