@@ -1,0 +1,69 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  stack       String[]
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memories Memory[]
+  playbook Playbook[]
+
+  @@map("projects")
+}
+
+enum MemoryType {
+  decision
+  pattern
+  lesson
+  prompt
+  review
+  debug
+  config
+}
+
+model Memory {
+  id         String                 @id @default(uuid())
+  type       MemoryType
+  content    String
+  embedding  Unsupported("vector(1536)")?
+  projectId  String?
+  author     String
+  tags       String[]
+  confidence Float                  @default(1.0)
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([type])
+  @@index([author])
+  @@index([projectId])
+  @@map("memories")
+}
+
+model Playbook {
+  id        String   @id @default(uuid())
+  role      String
+  rule      String
+  projectId String?
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([role])
+  @@map("playbook")
+}
