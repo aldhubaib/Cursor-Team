@@ -91,9 +91,6 @@ app.get("/sign-out", (_req: Request, res: Response) => {
 <script>
 (async()=>{
   try {
-    // #region agent log
-    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:start',message:'sign-out page starting',data:{},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
     const script = document.createElement('script');
     script.src = 'https://${clerkDomain}/npm/@clerk/clerk-js@5/dist/clerk.browser.js';
     script.crossOrigin = 'anonymous';
@@ -104,18 +101,9 @@ app.get("/sign-out", (_req: Request, res: Response) => {
       document.head.appendChild(script);
     });
     await window.Clerk.load();
-    // #region agent log
-    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:loaded',message:'Clerk loaded, calling signOut',data:{hasUser:!!window.Clerk.user,hasSession:!!window.Clerk.session},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
     await window.Clerk.signOut();
-    // #region agent log
-    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:done',message:'signOut resolved',data:{hasUser:!!window.Clerk.user,hasSession:!!window.Clerk.session},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
     window.location.replace('/sign-in');
   } catch(e) {
-    // #region agent log
-    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:error',message:'sign-out error',data:{error:e?.message||String(e)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
     document.querySelector('.msg').textContent = 'Sign out failed. Redirecting...';
     window.location.replace('/sign-in');
   }
@@ -137,64 +125,6 @@ app.get("/health", async (_req: Request, res: Response) => {
   }
 });
 
-// #region agent log
-app.get("/debug/auth-flow", async (req: Request, res: Response) => {
-  const results: Record<string, unknown> = {};
-  const pk = process.env.CLERK_PUBLISHABLE_KEY ?? "";
-  const sk = process.env.CLERK_SECRET_KEY ?? "";
-  results.h1_publishableKey = pk ? `${pk.substring(0, 12)}...` : "MISSING";
-  results.h1_secretKey = sk ? `${sk.substring(0, 12)}...` : "MISSING";
-  results.h1_clerkDomain = decodeClerkDomain(pk);
-  results.h1_portalDomain = accountPortalDomain(pk);
-  const host = req.get("host");
-  const proto = req.get("x-forwarded-proto") ?? req.protocol;
-  results.h1_detectedHost = host;
-  results.h1_detectedProtocol = proto;
-  results.h1_redirectUrl = `${proto}://${host}/dashboard`;
-  results.h1_fullSignInUrl = `https://${accountPortalDomain(pk)}/sign-in?redirect_url=${encodeURIComponent(`${proto}://${host}/dashboard`)}`;
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    results.h3_dbConnection = "ok";
-  } catch (e: any) {
-    results.h3_dbConnection = `error: ${e.message}`;
-  }
-  try {
-    const tableCheck = await prisma.$queryRaw`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'dashboard_users')` as any[];
-    results.h3_dashboardUsersTable = tableCheck[0]?.exists ?? "unknown";
-  } catch (e: any) {
-    results.h3_dashboardUsersTable = `error: ${e.message}`;
-  }
-  try {
-    const count = await prisma.dashboardUser.count();
-    results.h3_dashboardUserCount = count;
-  } catch (e: any) {
-    results.h3_dashboardUserCount = `error: ${e.message}`;
-  }
-  res.json(results);
-});
-
-app.get("/debug/fix-origins", async (req: Request, res: Response) => {
-  const sk = process.env.CLERK_SECRET_KEY ?? "";
-  if (!sk) { res.json({ error: "no secret key" }); return; }
-  try {
-    const patchRes = await fetch("https://api.clerk.com/v1/instance", {
-      method: "PATCH",
-      headers: {
-        "Authorization": `Bearer ${sk}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        allowed_origins: ["https://cursor-team-production.up.railway.app"],
-      }),
-    });
-    const text = await patchRes.text();
-    res.json({ status: patchRes.status, body: text });
-  } catch (e: any) {
-    res.json({ error: e.message });
-  }
-});
-// #endregion
-
 function decodeClerkDomain(publishableKey: string): string {
   try {
     const encoded = publishableKey.replace(/^pk_(test|live)_/, "");
@@ -203,11 +133,6 @@ function decodeClerkDomain(publishableKey: string): string {
   } catch {
     return "clerk.accounts.dev";
   }
-}
-
-function accountPortalDomain(publishableKey: string): string {
-  const frontendApi = decodeClerkDomain(publishableKey);
-  return frontendApi.replace(".clerk.accounts.dev", ".accounts.dev");
 }
 
 function signInPage(publishableKey: string, clerkDomain: string): string {
@@ -270,9 +195,6 @@ function signInPage(publishableKey: string, clerkDomain: string): string {
     <div class="footer">Invite-only access</div>
   </div>
   <script>
-    // #region agent log
-    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:init',message:'page loaded, starting Clerk init',data:{},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-    // #endregion
     (async () => {
       try {
         const script = document.createElement('script');
@@ -284,13 +206,7 @@ function signInPage(publishableKey: string, clerkDomain: string): string {
           script.onerror = reject;
           document.head.appendChild(script);
         });
-        // #region agent log
-        fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:script-loaded',message:'Clerk script loaded',data:{clerkExists:!!window.Clerk},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
         await window.Clerk.load();
-        // #region agent log
-        fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:clerk-loaded',message:'Clerk.load() complete',data:{user:!!window.Clerk.user},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
         if (window.Clerk.user) {
           window.location.replace('/dashboard');
           return;
@@ -304,13 +220,7 @@ function signInPage(publishableKey: string, clerkDomain: string): string {
             elements: { rootBox: { width: '100%' } }
           }
         });
-        // #region agent log
-        fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:mounted',message:'mountSignIn called',data:{},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
       } catch (e) {
-        // #region agent log
-        fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:error',message:'Clerk init error',data:{error:e?.message||String(e)},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
         document.getElementById('sign-in-widget').innerHTML = '<div class="error">Failed to load sign-in. Please refresh.</div>';
       }
     })();
