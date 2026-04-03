@@ -74,12 +74,8 @@ app.use(
 
 app.get("/sign-in", (_req: Request, res: Response) => {
   const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
-  const portal = accountPortalDomain(publishableKey);
-  const host = _req.get("host") ?? "cursor-team-production.up.railway.app";
-  const protocol = _req.get("x-forwarded-proto") ?? _req.protocol;
-  const redirectUrl = encodeURIComponent(`${protocol}://${host}/dashboard`);
-  const clerkSignIn = `https://${portal}/sign-in?redirect_url=${redirectUrl}`;
-  res.send(signInPage(clerkSignIn));
+  const clerkDomain = decodeClerkDomain(publishableKey);
+  res.send(signInPage(publishableKey, clerkDomain));
 });
 
 app.get("/sign-out", (_req: Request, res: Response) => {
@@ -202,7 +198,7 @@ function accountPortalDomain(publishableKey: string): string {
   return frontendApi.replace(".clerk.accounts.dev", ".accounts.dev");
 }
 
-function signInPage(clerkSignInUrl: string): string {
+function signInPage(publishableKey: string, clerkDomain: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -226,9 +222,9 @@ function signInPage(clerkSignInUrl: string): string {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 40px;
+      gap: 24px;
       width: 100%;
-      max-width: 400px;
+      max-width: 440px;
       padding: 24px;
       animation: fadeIn 0.4s ease;
     }
@@ -245,23 +241,9 @@ function signInPage(clerkSignInUrl: string): string {
     }
     .brand h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
     .brand p { color: #7a7a8e; font-size: 15px; line-height: 1.5; }
-    .sign-in-btn {
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      width: 100%; padding: 14px 24px;
-      background: #8b5cf6; color: white;
-      border: none; border-radius: 10px;
-      font-family: inherit; font-size: 15px; font-weight: 600;
-      cursor: pointer; text-decoration: none;
-      transition: background 0.15s, transform 0.1s;
-    }
-    .sign-in-btn:hover { background: #7c3aed; }
-    .sign-in-btn:active { transform: scale(0.98); }
-    .sign-in-btn svg { width: 18px; height: 18px; }
-    .divider {
-      width: 100%; display: flex; align-items: center; gap: 12px;
-      color: #3a3a4e; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
-    }
-    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #1e1e2e; }
+    #sign-in-widget { width: 100%; min-height: 100px; }
+    .loading { color: #7a7a8e; font-size: 14px; text-align: center; padding: 20px 0; }
+    .error { color: #fb7185; font-size: 14px; text-align: center; padding: 20px 0; }
     .footer { color: #3a3a4e; font-size: 12px; text-align: center; }
   </style>
 </head>
@@ -272,16 +254,55 @@ function signInPage(clerkSignInUrl: string): string {
       <h1>Cursor Team</h1>
       <p>AI team memory for your projects</p>
     </div>
-    <a href="${clerkSignInUrl}" class="sign-in-btn">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-      Sign in to continue
-    </a>
+    <div id="sign-in-widget"><div class="loading">Loading sign-in...</div></div>
     <div class="footer">Invite-only access</div>
   </div>
   <script>
-  // #region agent log
-  fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page',message:'sign-in page loaded',data:{signInUrl:document.querySelector('.sign-in-btn')?.href,currentUrl:window.location.href},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
+    // #region agent log
+    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:init',message:'page loaded, starting Clerk init',data:{},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+    // #endregion
+    (async () => {
+      try {
+        const script = document.createElement('script');
+        script.src = 'https://${clerkDomain}/npm/@clerk/clerk-js@5/dist/clerk.browser.js';
+        script.crossOrigin = 'anonymous';
+        script.setAttribute('data-clerk-publishable-key', '${publishableKey}');
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+        // #region agent log
+        fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:script-loaded',message:'Clerk script loaded',data:{clerkExists:!!window.Clerk},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
+        await window.Clerk.load();
+        // #region agent log
+        fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:clerk-loaded',message:'Clerk.load() complete',data:{user:!!window.Clerk.user},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
+        if (window.Clerk.user) {
+          window.location.href = '/dashboard';
+          return;
+        }
+        const el = document.getElementById('sign-in-widget');
+        el.innerHTML = '';
+        window.Clerk.mountSignIn(el, {
+          afterSignInUrl: '/dashboard',
+          afterSignUpUrl: '/dashboard',
+          appearance: {
+            variables: { colorPrimary: '#8b5cf6' },
+            elements: { rootBox: { width: '100%' } }
+          }
+        });
+        // #region agent log
+        fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:mounted',message:'mountSignIn called',data:{},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
+      } catch (e) {
+        // #region agent log
+        fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page:error',message:'Clerk init error',data:{error:e?.message||String(e)},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
+        document.getElementById('sign-in-widget').innerHTML = '<div class="error">Failed to load sign-in. Please refresh.</div>';
+      }
+    })();
   </script>
 </body>
 </html>`;
