@@ -24,13 +24,14 @@ This is the standard protocol every AI team agent follows for connecting to the 
 
 When any agent is activated, they MUST run these three steps in order:
 
-### 1. Pull your playbook
+### 1. Pull your playbook + team rules
 
 ```
+CallMcpTool: user-cursor-team → playbook_get({ role: "team" })
 CallMcpTool: user-cursor-team → playbook_get({ role: "<your_playbook_role>" })
 ```
 
-Read and follow every rule returned. These are your accumulated best practices — they override conflicting defaults in your SKILL.md.
+Pull the **team** playbook first (universal rules for all agents), then your **role-specific** playbook. Read and follow every rule returned. These are your accumulated best practices — they override conflicting defaults in your SKILL.md.
 
 ### 2. Search team-wide context
 

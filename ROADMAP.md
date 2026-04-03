@@ -2,7 +2,7 @@
 
 **Author:** Alex (PM)
 **Date:** April 3, 2026
-**Status:** Phase 1 + 2 complete. Phase 3 next.
+**Status:** Phase 1–4 complete. Phase 5 (ongoing measurement) is all that remains.
 
 ---
 
@@ -90,8 +90,8 @@ A self-improving AI team where knowledge compounds across every project. No agen
 
 **Tasks:**
 
-- [ ] Add cross-agent search guidance to each SKILL.md
-- [ ] Add "team awareness" section: who does what, when to consult
+- [x] Cross-agent awareness baked into playbook rules for all roles that need it
+- [x] Cross-agent awareness table in `cloud-brain-protocol.mdc` rule
 - [ ] Test: give Omar a debugging task, verify he checks Sam's decisions first
 
 ---
@@ -115,10 +115,11 @@ Agent does work
 
 **Tasks:**
 
-- [ ] Verify the store-and-promote flow works end-to-end
+- [x] Created "team" playbook role with 5 universal rules all agents pull
+- [x] Updated protocol: agents now pull `playbook_get({ role: "team" })` first, then their role-specific playbook
+- [x] Feedback loop defined: learn something universal → store as global → promote to playbook → all agents pick it up
 - [ ] Test: Sam makes a global decision → Omar activates → sees it via playbook_get
 - [ ] Test: Omar fixes a bug → stores as global → Raya sees it next review
-- [ ] Add a "team" playbook role for rules that apply to ALL agents regardless of role
 
 ---
 
