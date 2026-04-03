@@ -74,6 +74,7 @@ app.use(
 
 app.get("/sign-in", clerkMiddleware(), (_req: Request, res: Response) => {
   const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
+  const clerkDomain = decodeClerkDomain(publishableKey);
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -81,18 +82,24 @@ app.get("/sign-in", clerkMiddleware(), (_req: Request, res: Response) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign In — Cursor Team</title>
   <style>
-    body { margin: 0; background: #0a0a0f; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: system-ui; }
+    body { margin: 0; background: #0a0a0f; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: system-ui; color: #e0e0e8; }
+    .loading { text-align: center; }
+    .loading p { color: #7a7a8e; margin-top: 12px; }
     #sign-in { min-height: 400px; }
   </style>
 </head>
 <body>
-  <div id="sign-in"></div>
-  <script async crossorigin="anonymous" data-clerk-publishable-key="${publishableKey}" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
+  <div id="sign-in"><div class="loading"><p>Loading sign-in...</p></div></div>
+  <script async crossorigin="anonymous" data-clerk-publishable-key="${publishableKey}"
+    src="https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
   <script>
     window.addEventListener('load', async () => {
       await Clerk.load();
       if (Clerk.user) { window.location.href = '/dashboard'; return; }
-      Clerk.mountSignIn(document.getElementById('sign-in'), { afterSignInUrl: '/dashboard', afterSignUpUrl: '/dashboard' });
+      Clerk.mountSignIn(document.getElementById('sign-in'), {
+        afterSignInUrl: '/dashboard',
+        afterSignUpUrl: '/dashboard'
+      });
     });
   </script>
 </body>
@@ -101,9 +108,13 @@ app.get("/sign-in", clerkMiddleware(), (_req: Request, res: Response) => {
 
 app.get("/sign-out", clerkMiddleware(), (_req: Request, res: Response) => {
   const publishableKey = process.env.CLERK_PUBLISHABLE_KEY ?? "";
+  const clerkDomain = decodeClerkDomain(publishableKey);
   res.send(`<!DOCTYPE html>
-<html><head><title>Signing out…</title></head><body>
-<script async crossorigin="anonymous" data-clerk-publishable-key="${publishableKey}" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
+<html><head><title>Signing out…</title>
+<style>body { margin:0; background:#0a0a0f; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:system-ui; color:#7a7a8e; }</style>
+</head><body><p>Signing out...</p>
+<script async crossorigin="anonymous" data-clerk-publishable-key="${publishableKey}"
+  src="https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
 <script>
   window.addEventListener('load', async () => {
     await Clerk.load();
@@ -134,6 +145,16 @@ app.get("/health", async (_req: Request, res: Response) => {
     res.status(500).json({ status: "error", database: "disconnected" });
   }
 });
+
+function decodeClerkDomain(publishableKey: string): string {
+  try {
+    const encoded = publishableKey.replace(/^pk_(test|live)_/, "");
+    const decoded = Buffer.from(encoded, "base64").toString("utf-8");
+    return decoded.replace(/\$$/, "");
+  } catch {
+    return "clerk.accounts.dev";
+  }
+}
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 app.listen(PORT, "0.0.0.0", () => {
