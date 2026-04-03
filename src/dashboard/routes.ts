@@ -138,11 +138,15 @@ dashboardRouter.get("/team", async (_req: Request, res: Response) => {
   const agentCards = Object.entries(TEAM_MEMBERS)
     .map(
       ([id, member]) =>
-        `<div class="card">
-          <h3>${member.name}</h3>
-          <p class="role">${member.role}</p>
-          <p class="stat-value">${authorMap[id] ?? 0} memories stored</p>
-        </div>`,
+        `<a href="/dashboard/team/${id}" class="agent-card">
+          <div class="agent-avatar" style="background:${member.color}">${member.avatar}</div>
+          <div class="agent-name">${member.name}</div>
+          <div class="agent-role">${member.role}</div>
+          <div class="agent-expertise">
+            ${member.expertise.map((e) => `<span class="tag">${e}</span>`).join("")}
+          </div>
+          <div class="agent-stat"><strong>${authorMap[id] ?? 0}</strong> memories</div>
+        </a>`,
     )
     .join("");
 
@@ -169,13 +173,152 @@ dashboardRouter.get("/team", async (_req: Request, res: Response) => {
       "Team",
       `
       <h2>AI Agents</h2>
-      <div class="grid">${agentCards}</div>
+      <div class="agent-grid">${agentCards}</div>
 
       <h2>People</h2>
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th></tr></thead>
         <tbody>${memberRows || "<tr><td colspan='4'>No members yet.</td></tr>"}</tbody>
       </table>
+    `,
+    ),
+  );
+});
+
+// ── Agent Detail ─────────────────────────────────────────────────────
+
+dashboardRouter.get("/team/:agentId", async (req: Request, res: Response) => {
+  const { organizationId } = getLocals(res);
+  const agentId = String(req.params.agentId);
+  const member = TEAM_MEMBERS[agentId];
+
+  if (!member) {
+    res.status(404).send(renderPage("Not Found", `<div class="card"><p>Agent not found.</p></div>`));
+    return;
+  }
+
+  const [globalMemories, projectMemories, playbookRules] = await Promise.all([
+    prisma.memory.findMany({
+      where: {
+        organizationId,
+        author: agentId,
+        projectId: null,
+      },
+      include: { project: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+    prisma.memory.findMany({
+      where: {
+        organizationId,
+        author: agentId,
+        projectId: { not: null },
+      },
+      include: { project: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+    prisma.playbook.findMany({
+      where: { organizationId, role: member.playbookRole },
+      include: { project: { select: { name: true } } },
+      orderBy: { version: "desc" },
+    }),
+  ]);
+
+  const renderMemoryRows = (memories: typeof globalMemories) =>
+    memories
+      .map(
+        (m) =>
+          `<tr>
+            <td><span class="badge badge-${m.type}">${m.type}</span></td>
+            <td>${m.project?.name ?? "global"}</td>
+            <td class="content-cell">${escapeHtml(m.content.substring(0, 200))}${m.content.length > 200 ? "…" : ""}</td>
+            <td>${m.tags.map((t: string) => `<span class="tag">${t}</span>`).join(" ") || "—"}</td>
+            <td>${timeAgo(m.createdAt)}</td>
+          </tr>`,
+      )
+      .join("");
+
+  const globalRules = playbookRules.filter((r) => !r.projectId);
+  const projectRules = playbookRules.filter((r) => r.projectId);
+
+  const renderRules = (rules: typeof playbookRules) =>
+    rules
+      .map(
+        (r) =>
+          `<div class="rule">
+            <span class="badge">v${r.version}</span>
+            ${r.project ? `<span class="tag">${r.project.name}</span>` : ""}
+            <p>${escapeHtml(r.rule)}</p>
+          </div>`,
+      )
+      .join("");
+
+  res.send(
+    renderPage(
+      "Team",
+      `
+      <a href="/dashboard/team" class="back-link">← Back to Team</a>
+
+      <div class="agent-header">
+        <div class="agent-avatar" style="background:${member.color}">${member.avatar}</div>
+        <div class="agent-header-info">
+          <div class="agent-name">${member.name}</div>
+          <div class="agent-role">${member.role}</div>
+          <div class="agent-desc">${member.description}</div>
+          <div class="agent-expertise">
+            ${member.expertise.map((e: string) => `<span class="tag">${e}</span>`).join("")}
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card"><span class="stat-value">${globalMemories.length}</span><span class="stat-label">Global memories</span></div>
+        <div class="stat-card"><span class="stat-value">${projectMemories.length}</span><span class="stat-label">Project memories</span></div>
+        <div class="stat-card"><span class="stat-value">${playbookRules.length}</span><span class="stat-label">Playbook rules</span></div>
+      </div>
+
+      ${globalRules.length > 0 ? `
+      <div class="scope-section">
+        <div class="scope-header">
+          <div class="scope-dot" style="background:var(--green)"></div>
+          <h2 style="margin:0;">Playbook — Global Rules</h2>
+        </div>
+        <div class="card">${renderRules(globalRules)}</div>
+      </div>` : ""}
+
+      ${projectRules.length > 0 ? `
+      <div class="scope-section">
+        <div class="scope-header">
+          <div class="scope-dot" style="background:var(--amber)"></div>
+          <h2 style="margin:0;">Playbook — Project Rules</h2>
+        </div>
+        <div class="card">${renderRules(projectRules)}</div>
+      </div>` : ""}
+
+      <div class="scope-section">
+        <div class="scope-header">
+          <div class="scope-dot" style="background:var(--green)"></div>
+          <h2 style="margin:0;">Global Memories</h2>
+        </div>
+        ${globalMemories.length > 0 ? `
+        <table>
+          <thead><tr><th>Type</th><th>Scope</th><th>Content</th><th>Tags</th><th>When</th></tr></thead>
+          <tbody>${renderMemoryRows(globalMemories)}</tbody>
+        </table>` : `<div class="card"><p style="color:var(--text-dim)">No global memories yet.</p></div>`}
+      </div>
+
+      <div class="scope-section">
+        <div class="scope-header">
+          <div class="scope-dot" style="background:var(--amber)"></div>
+          <h2 style="margin:0;">Project-Specific Memories</h2>
+        </div>
+        ${projectMemories.length > 0 ? `
+        <table>
+          <thead><tr><th>Type</th><th>Project</th><th>Content</th><th>Tags</th><th>When</th></tr></thead>
+          <tbody>${renderMemoryRows(projectMemories)}</tbody>
+        </table>` : `<div class="card"><p style="color:var(--text-dim)">No project-specific memories yet.</p></div>`}
+      </div>
     `,
     ),
   );

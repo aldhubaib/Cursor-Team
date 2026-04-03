@@ -261,9 +261,157 @@ export function renderPage(title: string, body: string): string {
       font-size: 13px;
     }
 
+    /* Agent cards */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .agent-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .agent-card:hover {
+      border-color: var(--accent-dim);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    .agent-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+    }
+
+    .agent-card .agent-name {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .agent-card .agent-role {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
+    .agent-card .agent-expertise {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+
+    .agent-card .agent-expertise .tag {
+      font-size: 11px;
+      padding: 2px 6px;
+    }
+
+    .agent-card .agent-stat {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .agent-card .agent-stat strong {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Agent detail page */
+    .agent-header {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .agent-header .agent-avatar {
+      width: 80px;
+      height: 80px;
+      font-size: 34px;
+      margin-bottom: 0;
+    }
+
+    .agent-header-info .agent-name {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .agent-header-info .agent-role {
+      font-size: 15px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .agent-header-info .agent-desc {
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      max-width: 600px;
+    }
+
+    .agent-header-info .agent-expertise {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .scope-section {
+      margin-bottom: 24px;
+    }
+
+    .scope-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .scope-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .back-link:hover { color: var(--text); }
+
     @media (max-width: 768px) {
       nav { display: none; }
       main { margin-left: 0; padding: 16px; }
+      .agent-header { flex-direction: column; text-align: center; }
     }
   </style>
 </head>
