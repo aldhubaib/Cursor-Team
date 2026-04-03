@@ -5,22 +5,34 @@ alwaysApply: true
 
 # Team Update Workflow
 
-When the user asks to improve, update, or change instructions for any team member (sam, raya, kai, dana, omar, alex, tala, nizek, or any agent):
+## Updating an Existing Agent
 
-1. **Update the local SKILL.md** — edit the file in `~/.cursor/skills-cursor/<name>/SKILL.md`
-2. **Update the cloud playbook** — always sync the changes using the `playbook_update` MCP tool so the rules appear on the [Cursor Team dashboard](https://cursor-team-production.up.railway.app/dashboard/playbook)
+When the user asks to improve, update, or change instructions for any team member:
 
-Both must be updated. Never update one without the other.
+1. **Update the local SKILL.md** — edit `~/.cursor/skills-cursor/<name>/SKILL.md`
+2. **Update the cloud playbook** — sync via `playbook_update` MCP tool so changes appear on the [dashboard](https://cursor-team-production.up.railway.app/dashboard/playbook)
+3. **Store as memory** — record the change via `memory_store` so it appears in activity
 
-### Role mapping for playbook_update
+Both SKILL.md and cloud playbook must be updated. Never update one without the other.
 
-| Agent | Playbook role |
+## Adding a New Agent
+
+1. Create `~/.cursor/skills-cursor/<name>/SKILL.md` — identity, activation triggers, expertise, process only. Do NOT add Cloud Brain instructions — those are inherited from `cloud-brain-protocol.mdc`.
+2. Add to `TEAM_MEMBERS` in `~/Code/Cursor-Team/src/types.ts` — all fields: name, role, playbookRole, color, avatar, expertise, description
+3. Add to the mapping table in `.cursor/rules/cloud-brain-protocol.mdc`
+4. Add to the mapping table below
+5. Seed playbook rules: `playbook_update({ role: "<role>", rule: "..." })`
+6. Push to deploy — dashboard renders the new agent automatically
+
+## Role Mapping
+
+| Agent | Playbook Role |
 |-------|--------------|
 | sam | architect |
 | raya | reviewer |
-| kai | debugger |
-| dana | pm |
-| omar | prompt_engineer |
-| alex | devops |
-| tala | team_builder |
-| nizek | developer |
+| kai | devops |
+| dana | prompt_engineer |
+| omar | debugger |
+| alex | pm |
+| tala | design |
+| nizek | team_builder |

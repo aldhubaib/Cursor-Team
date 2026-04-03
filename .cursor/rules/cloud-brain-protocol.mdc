@@ -1,0 +1,114 @@
+---
+description: Standard Cloud Brain protocol inherited by all AI team agents
+alwaysApply: true
+---
+
+# Cloud Brain Protocol v2
+
+This is the standard protocol every AI team agent follows for connecting to the shared team brain. It is inherited automatically — individual SKILL.md files should NOT duplicate this.
+
+## Agent → Role Mapping
+
+| Agent | Playbook Role |
+|-------|--------------|
+| sam | architect |
+| raya | reviewer |
+| kai | devops |
+| dana | prompt_engineer |
+| omar | debugger |
+| alex | pm |
+| tala | design |
+| nizek | team_builder |
+
+## On Activation (before doing any work)
+
+When any agent is activated, they MUST run these three steps in order:
+
+### 1. Pull your playbook
+
+```
+CallMcpTool: user-cursor-team → playbook_get({ role: "<your_playbook_role>" })
+```
+
+Read and follow every rule returned. These are your accumulated best practices — they override conflicting defaults in your SKILL.md.
+
+### 2. Search team-wide context
+
+```
+CallMcpTool: user-cursor-team → memory_search({ query: "<relevant to the current task>" })
+```
+
+Do NOT filter by `author`. This is how you see what the entire team knows — Sam's architecture decisions, Omar's past fixes, Raya's review findings, Dana's prompt patterns. This is what makes you team-aware.
+
+### 3. Search your own history
+
+```
+CallMcpTool: user-cursor-team → memory_search({ query: "<relevant to the current task>", author: "<your_agent_id>" })
+```
+
+This surfaces your own past work on similar problems.
+
+## After Work (storing knowledge)
+
+### Classify before storing
+
+Every piece of knowledge must be classified:
+
+**Global** — would this still be true in a completely different project?
+
+```
+CallMcpTool: user-cursor-team → memory_store({
+  type: "<type>",
+  content: "<what you learned>",
+  author: "<your_agent_id>",
+  project: "global",
+  tags: ["global", "<relevant-tags>"]
+})
+```
+
+Then promote to playbook:
+
+```
+CallMcpTool: user-cursor-team → playbook_update({ role: "<your_playbook_role>", rule: "<the universal principle>" })
+```
+
+**Project-specific** — depends on this codebase, stack, or project requirements?
+
+```
+CallMcpTool: user-cursor-team → memory_store({
+  type: "<type>",
+  content: "<what you learned>",
+  author: "<your_agent_id>",
+  project: "<actual-project-name>",
+  tags: ["<relevant-tags>"]
+})
+```
+
+## Cross-Agent Awareness
+
+Before starting work, consider whose knowledge is relevant:
+
+- **Architecture decisions** → search for Sam's memories
+- **Past bug fixes** → search for Omar's memories
+- **Code review findings** → search for Raya's memories
+- **Prompt patterns** → search for Dana's memories
+- **Infrastructure/deployment** → search for Kai's memories
+- **Design decisions** → search for Tala's memories
+- **Project plans/roadmap** → search for Alex's memories
+
+The team-wide search (step 2) covers this, but if you need targeted context, filter by the relevant agent's author.
+
+## MCP Server
+
+Always use `user-cursor-team` as the MCP server name. Never use `cursor-team`.
+
+## Adding a New Agent
+
+When a new agent is introduced:
+
+1. Create `~/.cursor/skills-cursor/<name>/SKILL.md` with identity, activation triggers, expertise, and process — do NOT include Cloud Brain instructions (this rule provides them)
+2. Add the agent to `TEAM_MEMBERS` in `src/types.ts` (name, role, playbookRole, color, avatar, expertise, description)
+3. Add the agent to the mapping table in THIS rule file
+4. Add the agent to the mapping table in `.cursor/rules/team-update-workflow.mdc`
+5. Seed initial playbook rules: `playbook_update({ role: "<new_role>", rule: "..." })`
+6. The dashboard team page and detail page will render automatically from `TEAM_MEMBERS`
