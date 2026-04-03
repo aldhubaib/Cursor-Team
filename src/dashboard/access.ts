@@ -3,19 +3,22 @@ import { getAuth, clerkClient } from "@clerk/express";
 import { prisma } from "../db.js";
 
 export interface DashboardLocals {
-  dashboardUser: {
+  user: {
     id: string;
     clerkId: string;
     email: string;
     name: string | null;
-    role: "admin" | "member";
   };
+  orgMember: {
+    role: "owner" | "admin" | "member";
+    organizationId: string;
+  };
+  organizationId: string;
 }
 
 /**
- * If no dashboard users exist yet, the first Clerk user who visits
- * is auto-registered as admin. After that, only users in the
- * dashboard_users table can access the dashboard.
+ * Dashboard access middleware. Resolves Clerk user → User → OrgMember.
+ * First Clerk user auto-creates a default org and becomes owner.
  */
 export async function dashboardAccess(
   req: Request,
@@ -28,11 +31,11 @@ export async function dashboardAccess(
     return;
   }
 
-  let dbUser = await prisma.dashboardUser.findUnique({
+  let user = await prisma.user.findUnique({
     where: { clerkId: userId },
   });
 
-  if (!dbUser) {
+  if (!user) {
     const clerkUser = await clerkClient.users.getUser(userId);
     const email =
       clerkUser.emailAddresses.find(
@@ -44,12 +47,10 @@ export async function dashboardAccess(
       return;
     }
 
-    const invited = await prisma.dashboardUser.findUnique({
-      where: { email },
-    });
+    const invited = await prisma.user.findUnique({ where: { email } });
 
     if (invited) {
-      dbUser = await prisma.dashboardUser.update({
+      user = await prisma.user.update({
         where: { email },
         data: {
           clerkId: userId,
@@ -60,19 +61,44 @@ export async function dashboardAccess(
         },
       });
     } else {
-      const userCount = await prisma.dashboardUser.count();
-      if (userCount === 0) {
-        dbUser = await prisma.dashboardUser.create({
-          data: {
-            clerkId: userId,
-            email,
-            name:
-              [clerkUser.firstName, clerkUser.lastName]
-                .filter(Boolean)
-                .join(" ") || null,
-            role: "admin",
-          },
+      const anyOrg = await prisma.organization.findFirst();
+      if (!anyOrg) {
+        const name =
+          [clerkUser.firstName, clerkUser.lastName]
+            .filter(Boolean)
+            .join(" ") || null;
+
+        const result = await prisma.$transaction(async (tx) => {
+          const org = await tx.organization.create({
+            data: { name: "My Team", slug: "default" },
+          });
+
+          const newUser = await tx.user.create({
+            data: { clerkId: userId, email, name },
+          });
+
+          await tx.orgMember.create({
+            data: {
+              organizationId: org.id,
+              userId: newUser.id,
+              role: "owner",
+            },
+          });
+
+          const apiKey = `ct_${generateKey()}`;
+          await tx.apiKey.create({
+            data: {
+              organizationId: org.id,
+              userId: newUser.id,
+              key: apiKey,
+              label: "default",
+            },
+          });
+
+          return { user: newUser, org };
         });
+
+        user = result.user;
       } else {
         res.status(403).send(accessDeniedHtml());
         return;
@@ -80,8 +106,41 @@ export async function dashboardAccess(
     }
   }
 
-  res.locals.dashboardUser = dbUser;
+  const membership = await prisma.orgMember.findFirst({
+    where: { userId: user.id },
+    orderBy: { joinedAt: "asc" },
+  });
+
+  if (!membership) {
+    res.status(403).send(accessDeniedHtml());
+    return;
+  }
+
+  (res.locals as unknown as DashboardLocals).user = {
+    id: user.id,
+    clerkId: user.clerkId!,
+    email: user.email,
+    name: user.name,
+  };
+  (res.locals as unknown as DashboardLocals).orgMember = {
+    role: membership.role as "owner" | "admin" | "member",
+    organizationId: membership.organizationId,
+  };
+  (res.locals as unknown as DashboardLocals).organizationId =
+    membership.organizationId;
+
   next();
+}
+
+function generateKey(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  for (const b of bytes) {
+    result += chars[b % chars.length];
+  }
+  return result;
 }
 
 function accessDeniedHtml(): string {

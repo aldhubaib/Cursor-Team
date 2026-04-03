@@ -1,11 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { prisma } from "../../db.js";
+import { logActivity } from "../../activity.js";
+import type { OrgContext } from "../../context.js";
 
-export function registerPlaybookTools(server: McpServer) {
+export function registerPlaybookTools(server: McpServer, ctx: OrgContext) {
   server.registerTool("playbook_get", {
     description:
-      "Get the global playbook rules for a team member role. These are the accumulated best practices.",
+      "Get the playbook rules for a team member role. These are the accumulated best practices.",
     inputSchema: {
       role: z
         .string()
@@ -19,17 +21,14 @@ export function registerPlaybookTools(server: McpServer) {
     },
   }, async ({ role, project }) => {
     try {
-      const where: Record<string, unknown> = {
-        role: role.toLowerCase(),
-      };
-
       const rules = await prisma.playbook.findMany({
         where: {
+          organizationId: ctx.organizationId,
           role: role.toLowerCase(),
           OR: [
             { projectId: null },
             ...(project
-              ? [{ project: { name: project.toLowerCase() } }]
+              ? [{ project: { name: project.toLowerCase(), organizationId: ctx.organizationId } }]
               : []),
           ],
         },
@@ -101,14 +100,15 @@ export function registerPlaybookTools(server: McpServer) {
     try {
       let projectId: string | null = null;
       if (project) {
-        const p = await prisma.project.findUnique({
-          where: { name: project.toLowerCase() },
+        const p = await prisma.project.findFirst({
+          where: { name: project.toLowerCase(), organizationId: ctx.organizationId },
         });
         projectId = p?.id ?? null;
       }
 
       const existing = await prisma.playbook.findFirst({
         where: {
+          organizationId: ctx.organizationId,
           role: role.toLowerCase(),
           rule,
           projectId,
@@ -132,10 +132,17 @@ export function registerPlaybookTools(server: McpServer) {
 
       await prisma.playbook.create({
         data: {
+          organizationId: ctx.organizationId,
           role: role.toLowerCase(),
           rule,
           projectId,
         },
+      });
+
+      await logActivity(ctx, "playbook_update", {
+        projectId,
+        agentRole: role.toLowerCase(),
+        metadata: { rule: rule.substring(0, 100) },
       });
 
       return {

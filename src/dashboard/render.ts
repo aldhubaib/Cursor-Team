@@ -194,6 +194,14 @@ export function renderPage(title: string, body: string): string {
     .badge-debug { background: #06b6d420; color: var(--cyan); }
     .badge-config { background: #7a7a8e20; color: var(--text-dim); }
 
+    .badge-active { background: #22c55e20; color: var(--green); }
+    .badge-archived { background: #7a7a8e20; color: var(--text-dim); }
+    .badge-handoff { background: #f59e0b20; color: var(--amber); }
+
+    .badge-owner { background: #6d28d920; color: var(--accent); }
+    .badge-admin { background: #3b82f620; color: var(--blue); }
+    .badge-member { background: #7a7a8e20; color: var(--text-dim); }
+
     .tag {
       display: inline-block;
       padding: 2px 8px;
@@ -267,6 +275,7 @@ export function renderPage(title: string, body: string): string {
       <a href="/dashboard/projects" class="${title === "Projects" ? "active" : ""}">Projects</a>
       <a href="/dashboard/team" class="${title === "Team" ? "active" : ""}">Team</a>
       <a href="/dashboard/memories" class="${title === "Memories" ? "active" : ""}">Memories</a>
+      <a href="/dashboard/activity" class="${title === "Activity" ? "active" : ""}">Activity</a>
       <a href="/dashboard/playbook" class="${title === "Playbook" ? "active" : ""}">Playbook</a>
       <a href="/dashboard/connect" class="${title === "Connect" ? "active" : ""}">Connect</a>
       <a href="/dashboard/settings" class="${title === "Settings" ? "active" : ""}">Settings</a>
@@ -280,4 +289,3 @@ export function renderPage(title: string, body: string): string {
 </body>
 </html>`;
 }
-

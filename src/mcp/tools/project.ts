@@ -1,8 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { prisma } from "../../db.js";
+import { logActivity } from "../../activity.js";
+import type { OrgContext } from "../../context.js";
 
-export function registerProjectTools(server: McpServer) {
+export function registerProjectTools(server: McpServer, ctx: OrgContext) {
   server.registerTool("project_register", {
     description:
       "Register a new project so the team can track knowledge per project.",
@@ -20,15 +22,21 @@ export function registerProjectTools(server: McpServer) {
     },
   }, async ({ name, stack, description }) => {
     try {
-      const existing = await prisma.project.findUnique({
-        where: { name: name.toLowerCase() },
+      const existing = await prisma.project.findFirst({
+        where: { name: name.toLowerCase(), organizationId: ctx.organizationId },
       });
 
       if (existing) {
         const updated = await prisma.project.update({
-          where: { name: name.toLowerCase() },
+          where: { id: existing.id },
           data: { stack, description },
         });
+
+        await logActivity(ctx, "project_update", {
+          projectId: updated.id,
+          metadata: { stack, description },
+        });
+
         return {
           content: [
             {
@@ -42,9 +50,25 @@ export function registerProjectTools(server: McpServer) {
       const project = await prisma.project.create({
         data: {
           name: name.toLowerCase(),
+          organizationId: ctx.organizationId,
           stack,
           description,
         },
+      });
+
+      if (ctx.userId) {
+        await prisma.projectAssignment.create({
+          data: {
+            projectId: project.id,
+            userId: ctx.userId,
+            role: "lead",
+          },
+        });
+      }
+
+      await logActivity(ctx, "project_register", {
+        projectId: project.id,
+        metadata: { name: project.name, stack },
       });
 
       return {
@@ -70,17 +94,21 @@ export function registerProjectTools(server: McpServer) {
 
   server.registerTool("project_get", {
     description:
-      "Get a project's profile, stats, and summary of associated memories.",
+      "Get a project's profile, stats, contributors, and summary of associated memories.",
     inputSchema: {
       name: z.string().describe("Project name"),
     },
   }, async ({ name }) => {
     try {
-      const project = await prisma.project.findUnique({
-        where: { name: name.toLowerCase() },
+      const project = await prisma.project.findFirst({
+        where: { name: name.toLowerCase(), organizationId: ctx.organizationId },
         include: {
           memories: {
-            select: { type: true, author: true },
+            select: { type: true, author: true, contributorId: true },
+          },
+          assignments: {
+            where: { removedAt: null },
+            include: { user: { select: { name: true, email: true } } },
           },
         },
       });
@@ -110,17 +138,23 @@ export function registerProjectTools(server: McpServer) {
         .map(([a, c]) => `  ${a}: ${c}`)
         .join("\n");
 
+      const contributors = project.assignments
+        .map((a) => `  ${a.user.name ?? a.user.email} (${a.role})`)
+        .join("\n");
+
       return {
         content: [
           {
             type: "text" as const,
             text: [
               `Project: ${project.name}`,
+              `Status: ${project.status}`,
               `Stack: ${project.stack.join(", ")}`,
               `Description: ${project.description ?? "none"}`,
               `Total memories: ${project.memories.length}`,
               `\nBy type:\n${typeStats || "  none"}`,
               `\nBy author:\n${authorStats || "  none"}`,
+              `\nContributors:\n${contributors || "  none assigned"}`,
               `\nCreated: ${project.createdAt.toISOString()}`,
             ].join("\n"),
           },
@@ -145,6 +179,7 @@ export function registerProjectTools(server: McpServer) {
   }, async () => {
     try {
       const projects = await prisma.project.findMany({
+        where: { organizationId: ctx.organizationId },
         include: { _count: { select: { memories: true } } },
         orderBy: { updatedAt: "desc" },
       });
@@ -163,7 +198,7 @@ export function registerProjectTools(server: McpServer) {
       const formatted = projects
         .map(
           (p) =>
-            `• ${p.name} — ${p.stack.join(", ")} (${p._count.memories} memories)`,
+            `• ${p.name} [${p.status}] — ${p.stack.join(", ")} (${p._count.memories} memories)`,
         )
         .join("\n");
 

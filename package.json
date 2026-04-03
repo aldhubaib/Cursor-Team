@@ -10,6 +10,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
+    "migrate:v2": "tsx src/scripts/migrate-v2.ts",
     "postinstall": "prisma generate"
   },
   "engines": {

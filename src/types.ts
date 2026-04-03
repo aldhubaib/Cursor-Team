@@ -21,3 +21,9 @@ export const MEMORY_TYPES = [
 ] as const;
 
 export type MemoryType = (typeof MEMORY_TYPES)[number];
+
+export const PROJECT_STATUSES = ["active", "archived", "handoff"] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+export const ORG_ROLES = ["owner", "admin", "member"] as const;
+export type OrgRole = (typeof ORG_ROLES)[number];

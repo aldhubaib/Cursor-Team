@@ -2,30 +2,18 @@ import express, { Request, Response } from "express";
 import { clerkMiddleware, requireAuth } from "@clerk/express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpServer } from "./mcp/server.js";
+import { mcpAuth } from "./auth.js";
 import { dashboardRouter } from "./dashboard/routes.js";
 import { dashboardAccess } from "./dashboard/access.js";
 import { prisma } from "./db.js";
+import type { OrgContext } from "./context.js";
 
 const app = express();
 app.use(express.json());
 
-function authMiddleware(req: Request, res: Response, next: () => void) {
-  const auth = req.headers.authorization;
-  const expected = process.env.API_SECRET_TOKEN;
-
-  if (!expected) return next();
-
-  if (auth === `Bearer ${expected}`) return next();
-
-  res.status(401).json({
-    jsonrpc: "2.0",
-    error: { code: -32000, message: "Unauthorized" },
-    id: null,
-  });
-}
-
-app.post("/mcp", authMiddleware, async (req: Request, res: Response) => {
-  const server = createMcpServer();
+app.post("/mcp", mcpAuth, async (req: Request, res: Response) => {
+  const ctx = req.orgContext as OrgContext;
+  const server = createMcpServer(ctx);
   try {
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,

@@ -1,0 +1,49 @@
+# cursor-team — Project Conventions
+
+## This Project
+
+Cloud-based AI team memory backend for Cursor IDE. Express 5 server exposing MCP tools for memory, projects, playbook, and team bootstrap. Clerk-protected dashboard. Prisma with pgvector for semantic search.
+
+## Tech Stack
+
+TypeScript (ES2022), Express 5, Prisma, PostgreSQL + pgvector, Clerk, @modelcontextprotocol/sdk, OpenAI, Zod 4, Node >= 20.
+
+## Code Style
+
+- All inputs validated with Zod before processing
+- Async/await with proper error handling on every async operation
+- No `any` without explicit justification
+- Prisma client imported from `src/db.ts` (singleton)
+- Keep route handlers thin — business logic in dedicated functions
+- MCP tool handlers follow consistent input validation → logic → response pattern
+
+## File Organization
+
+- `src/mcp/tools/` — one file per MCP tool domain (memory, project, playbook, bootstrap)
+- `src/dashboard/` — Clerk-protected web UI routes and rendering
+- `src/types.ts` — shared constants (team members, memory types)
+- `prisma/schema.prisma` — single source of truth for data models
+
+## Database
+
+- Prisma is the ORM — never write raw SQL unless pgvector requires it
+- pgvector embeddings are 1536-dimensional (OpenAI text-embedding-3-small)
+- Avoid N+1 queries — use `include` or batch operations
+- Run `npx prisma db push` for dev, `npx prisma migrate` for production changes
+
+## Security
+
+- Never hardcode secrets — use environment variables
+- Clerk middleware on all dashboard routes
+- Bearer token auth on MCP endpoint
+- Validate all external inputs with Zod
+
+## AI Team
+
+This project has an AI team. Activate members by name:
+- **Alex** (PM): "hey alex" — roadmap, priorities, planning
+- **Sam** (Architect): "hey sam" — design, structure, refactoring
+- **Raya** (Reviewer): "hey raya" — code review, quality
+- **Omar** (Debugger): "hey omar" — bugs, errors, debugging
+- **Dana** (Prompt Engineer): "hey dana" — prompts, MCP descriptions, skills
+- **Kai** (DevOps): "hey kai" — deployment, Docker, Railway, infra

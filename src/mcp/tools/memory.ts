@@ -2,9 +2,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { prisma } from "../../db.js";
 import { generateEmbedding } from "../../embeddings.js";
+import { logActivity } from "../../activity.js";
 import { MEMORY_TYPES } from "../../types.js";
+import type { OrgContext } from "../../context.js";
 
-export function registerMemoryTools(server: McpServer) {
+export function registerMemoryTools(server: McpServer, ctx: OrgContext) {
   server.registerTool("memory_store", {
     description:
       "Store a new memory (decision, pattern, lesson, prompt template, review finding, debug fix, or config). This is how the team learns.",
@@ -30,8 +32,8 @@ export function registerMemoryTools(server: McpServer) {
 
       let projectRecord = null;
       if (project) {
-        projectRecord = await prisma.project.findUnique({
-          where: { name: project },
+        projectRecord = await prisma.project.findFirst({
+          where: { name: project, organizationId: ctx.organizationId },
         });
       }
 
@@ -40,7 +42,9 @@ export function registerMemoryTools(server: McpServer) {
           type,
           content,
           author: author.toLowerCase(),
+          organizationId: ctx.organizationId,
           projectId: projectRecord?.id ?? null,
+          contributorId: ctx.userId,
           tags: tags ?? [],
           confidence: confidence ?? 1.0,
         },
@@ -51,6 +55,12 @@ export function registerMemoryTools(server: McpServer) {
         `[${embedding.join(",")}]`,
         memory.id,
       );
+
+      await logActivity(ctx, "memory_store", {
+        projectId: projectRecord?.id,
+        agentRole: author.toLowerCase(),
+        metadata: { memoryId: memory.id, type, tags: tags ?? [] },
+      });
 
       return {
         content: [
@@ -88,9 +98,9 @@ export function registerMemoryTools(server: McpServer) {
       const embedding = await generateEmbedding(query);
       const n = limit ?? 10;
 
-      const conditions: string[] = [];
-      const params: unknown[] = [`[${embedding.join(",")}]`, n];
-      let paramIdx = 3;
+      const conditions: string[] = [`m."organizationId" = $3`];
+      const params: unknown[] = [`[${embedding.join(",")}]`, n, ctx.organizationId];
+      let paramIdx = 4;
 
       if (type) {
         conditions.push(`m.type = $${paramIdx}::memories_type_enum`);
@@ -108,10 +118,7 @@ export function registerMemoryTools(server: McpServer) {
         paramIdx++;
       }
 
-      const whereClause =
-        conditions.length > 0
-          ? `WHERE m.embedding IS NOT NULL AND ${conditions.join(" AND ")}`
-          : `WHERE m.embedding IS NOT NULL`;
+      const whereClause = `WHERE m.embedding IS NOT NULL AND ${conditions.join(" AND ")}`;
 
       const results = await prisma.$queryRawUnsafe<
         Array<{
@@ -122,21 +129,28 @@ export function registerMemoryTools(server: McpServer) {
           tags: string[];
           confidence: number;
           project_name: string | null;
+          contributor_name: string | null;
           similarity: number;
           created_at: Date;
         }>
       >(
         `SELECT m.id, m.type, m.content, m.author, m.tags, m.confidence,
                 p.name as project_name,
+                u.name as contributor_name,
                 1 - (m.embedding <=> $1::vector) as similarity,
                 m."createdAt" as created_at
          FROM memories m
          LEFT JOIN projects p ON m."projectId" = p.id
+         LEFT JOIN users u ON m."contributorId" = u.id
          ${whereClause}
          ORDER BY m.embedding <=> $1::vector
          LIMIT $2`,
         ...params,
       );
+
+      await logActivity(ctx, "memory_search", {
+        metadata: { query, resultCount: results.length },
+      });
 
       if (results.length === 0) {
         return {
@@ -153,7 +167,7 @@ export function registerMemoryTools(server: McpServer) {
         .map(
           (r, i) =>
             `${i + 1}. [${r.type}] (${Math.round(r.similarity * 100)}% match)\n` +
-            `   Author: ${r.author}${r.project_name ? ` | Project: ${r.project_name}` : ""}\n` +
+            `   Author: ${r.author}${r.contributor_name ? ` (via ${r.contributor_name})` : ""}${r.project_name ? ` | Project: ${r.project_name}` : ""}\n` +
             `   Tags: ${r.tags.length > 0 ? r.tags.join(", ") : "none"}\n` +
             `   ${r.content}`,
         )
@@ -191,14 +205,19 @@ export function registerMemoryTools(server: McpServer) {
     },
   }, async ({ type, author, project, limit, offset }) => {
     try {
-      const where: Record<string, unknown> = {};
+      const where: Record<string, unknown> = {
+        organizationId: ctx.organizationId,
+      };
       if (type) where.type = type;
       if (author) where.author = author.toLowerCase();
-      if (project) where.project = { name: project };
+      if (project) where.project = { name: project, organizationId: ctx.organizationId };
 
       const memories = await prisma.memory.findMany({
         where,
-        include: { project: { select: { name: true } } },
+        include: {
+          project: { select: { name: true } },
+          contributor: { select: { name: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: limit ?? 20,
         skip: offset ?? 0,
@@ -217,7 +236,7 @@ export function registerMemoryTools(server: McpServer) {
       const formatted = memories
         .map(
           (m, i) =>
-            `${(offset ?? 0) + i + 1}. [${m.type}] by ${m.author}${m.project ? ` (${m.project.name})` : ""}\n` +
+            `${(offset ?? 0) + i + 1}. [${m.type}] by ${m.author}${m.contributor ? ` (via ${m.contributor.name})` : ""}${m.project ? ` (${m.project.name})` : ""}\n` +
             `   Tags: ${m.tags.length > 0 ? m.tags.join(", ") : "none"} | Confidence: ${m.confidence}\n` +
             `   ${m.content.substring(0, 200)}${m.content.length > 200 ? "..." : ""}`,
         )
@@ -251,7 +270,14 @@ export function registerMemoryTools(server: McpServer) {
     },
   }, async ({ id }) => {
     try {
-      await prisma.memory.delete({ where: { id } });
+      await prisma.memory.delete({
+        where: { id, organizationId: ctx.organizationId },
+      });
+
+      await logActivity(ctx, "memory_delete", {
+        metadata: { memoryId: id },
+      });
+
       return {
         content: [
           { type: "text" as const, text: `Deleted memory ${id}` },
