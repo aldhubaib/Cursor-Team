@@ -135,6 +135,7 @@ enum MemoryType {
   review
   debug
   config
+  design
 }
 
 model Memory {
