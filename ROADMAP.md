@@ -2,7 +2,7 @@
 
 **Author:** Alex (PM)
 **Date:** April 3, 2026
-**Status:** Ready for execution
+**Status:** Phase 1 + 2 complete. Phase 3 next.
 
 ---
 
@@ -43,9 +43,8 @@ A self-improving AI team where knowledge compounds across every project. No agen
 
 - [x] Write `cloud-brain-protocol.mdc` as a single-source-of-truth Cursor rule
 - [x] Fix role mapping (was completely wrong — roles were shuffled)
-- [ ] Remove duplicate Cloud Brain sections from all 8 SKILL.md files (they now inherit from the rule)
-- [ ] Fix MCP server name in any remaining SKILL.md references (`cursor-team` → `user-cursor-team`)
-- [ ] Verify each agent's SKILL.md has their `playbookRole` declared so the rule can map it
+- [x] Remove duplicate Cloud Brain sections from all 8 SKILL.md files (they now inherit from the rule)
+- [x] Fix MCP server name in all SKILL.md references (`cursor-team` → `user-cursor-team`)
 - [ ] Test: activate an agent, verify playbook_get is called, verify team-wide search happens
 
 ---
@@ -58,14 +57,16 @@ A self-improving AI team where knowledge compounds across every project. No agen
 
 **Tasks:**
 
-- [ ] Extract Raya's top review rules → `playbook_update({ role: "reviewer", ... })`
-- [ ] Extract Omar's debug protocol rules → `playbook_update({ role: "debugger", ... })`
-- [ ] Extract Dana's prompt engineering rules → `playbook_update({ role: "prompt_engineer", ... })`
-- [ ] Extract Kai's deployment rules → `playbook_update({ role: "devops", ... })`
-- [ ] Extract Alex's planning rules → (already done, 1 rule exists)
-- [ ] Extract Tala's design rules → `playbook_update({ role: "design", ... })`
-- [ ] Extract Nizek's team building rules → `playbook_update({ role: "team_builder", ... })`
+- [x] Extract Raya's top review rules → 4 rules seeded
+- [x] Extract Omar's debug protocol rules → 4 rules seeded
+- [x] Extract Dana's prompt engineering rules → 4 rules seeded
+- [x] Extract Kai's deployment rules → 3 rules seeded
+- [x] Extract Alex's planning rules → 3 rules seeded
+- [x] Extract Tala's design rules → 3 rules seeded
+- [x] Extract Nizek's team building rules → 2 rules seeded
 - [ ] Verify all roles show on dashboard playbook page
+
+**Total: 30 playbook rules across 8 roles.** Cross-agent awareness baked into rules for reviewer, debugger, prompt_engineer, devops, and design — each knows whose decisions to check before starting work.
 
 ---
 
