@@ -164,6 +164,27 @@ app.get("/debug/auth-flow", async (req: Request, res: Response) => {
   }
   res.json(results);
 });
+
+app.get("/debug/fix-origins", async (req: Request, res: Response) => {
+  const sk = process.env.CLERK_SECRET_KEY ?? "";
+  if (!sk) { res.json({ error: "no secret key" }); return; }
+  try {
+    const patchRes = await fetch("https://api.clerk.com/v1/instance", {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${sk}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        allowed_origins: ["https://cursor-team-production.up.railway.app"],
+      }),
+    });
+    const text = await patchRes.text();
+    res.json({ status: patchRes.status, body: text });
+  } catch (e: any) {
+    res.json({ error: e.message });
+  }
+});
 // #endregion
 
 function decodeClerkDomain(publishableKey: string): string {
