@@ -22,15 +22,33 @@ export async function dashboardAccess(
   res: Response,
   next: NextFunction,
 ) {
+  // #region agent log
+  console.log("[debug-4b5fbe] dashboardAccess: entering middleware");
+  // #endregion
   const { userId } = getAuth(req);
+  // #region agent log
+  console.log("[debug-4b5fbe] dashboardAccess: userId =", userId);
+  // #endregion
   if (!userId) {
     res.redirect("/sign-in");
     return;
   }
 
-  let dbUser = await prisma.dashboardUser.findUnique({
-    where: { clerkId: userId },
-  });
+  let dbUser: Awaited<ReturnType<typeof prisma.dashboardUser.findUnique>>;
+  try {
+    dbUser = await prisma.dashboardUser.findUnique({
+      where: { clerkId: userId },
+    });
+    // #region agent log
+    console.log("[debug-4b5fbe] dashboardAccess: dbUser =", dbUser?.email ?? "not found");
+    // #endregion
+  } catch (e: any) {
+    // #region agent log
+    console.error("[debug-4b5fbe] dashboardAccess: DB error =", e.message);
+    // #endregion
+    res.status(500).send("Database error: " + e.message);
+    return;
+  }
 
   if (!dbUser) {
     const clerkUser = await clerkClient.users.getUser(userId);

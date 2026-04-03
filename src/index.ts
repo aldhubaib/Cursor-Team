@@ -92,10 +92,25 @@ app.get("/sign-out", (_req: Request, res: Response) => {
 <script src="https://${clerkDomain}/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
   data-clerk-publishable-key="${publishableKey}" crossorigin="anonymous"></script>
 <script>
+// #region agent log
+fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page',message:'sign-out page loaded',data:{clerkAvailable:typeof window.Clerk !== 'undefined'},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+// #endregion
 (async()=>{
-  await window.Clerk.load();
-  await window.Clerk.signOut();
-  window.location.href='/sign-in';
+  try {
+    // #region agent log
+    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:clerk-load',message:'starting Clerk.load()',data:{clerkExists:!!window.Clerk},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+    // #endregion
+    await window.Clerk.load();
+    // #region agent log
+    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:clerk-loaded',message:'Clerk loaded, calling signOut',data:{},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+    // #endregion
+    await window.Clerk.signOut();
+    window.location.href='/sign-in';
+  } catch(e) {
+    // #region agent log
+    fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-out-page:error',message:'sign-out error',data:{error:e?.message||String(e)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+    // #endregion
+  }
 })();
 </script>
 </body></html>`);
@@ -113,6 +128,43 @@ app.get("/health", async (_req: Request, res: Response) => {
     res.status(500).json({ status: "error", database: "disconnected" });
   }
 });
+
+// #region agent log
+app.get("/debug/auth-flow", async (req: Request, res: Response) => {
+  const results: Record<string, unknown> = {};
+  const pk = process.env.CLERK_PUBLISHABLE_KEY ?? "";
+  const sk = process.env.CLERK_SECRET_KEY ?? "";
+  results.h1_publishableKey = pk ? `${pk.substring(0, 12)}...` : "MISSING";
+  results.h1_secretKey = sk ? `${sk.substring(0, 12)}...` : "MISSING";
+  results.h1_clerkDomain = decodeClerkDomain(pk);
+  results.h1_portalDomain = accountPortalDomain(pk);
+  const host = req.get("host");
+  const proto = req.get("x-forwarded-proto") ?? req.protocol;
+  results.h1_detectedHost = host;
+  results.h1_detectedProtocol = proto;
+  results.h1_redirectUrl = `${proto}://${host}/dashboard`;
+  results.h1_fullSignInUrl = `https://${accountPortalDomain(pk)}/sign-in?redirect_url=${encodeURIComponent(`${proto}://${host}/dashboard`)}`;
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    results.h3_dbConnection = "ok";
+  } catch (e: any) {
+    results.h3_dbConnection = `error: ${e.message}`;
+  }
+  try {
+    const tableCheck = await prisma.$queryRaw`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'dashboard_users')` as any[];
+    results.h3_dashboardUsersTable = tableCheck[0]?.exists ?? "unknown";
+  } catch (e: any) {
+    results.h3_dashboardUsersTable = `error: ${e.message}`;
+  }
+  try {
+    const count = await prisma.dashboardUser.count();
+    results.h3_dashboardUserCount = count;
+  } catch (e: any) {
+    results.h3_dashboardUserCount = `error: ${e.message}`;
+  }
+  res.json(results);
+});
+// #endregion
 
 function decodeClerkDomain(publishableKey: string): string {
   try {
@@ -205,6 +257,11 @@ function signInPage(clerkSignInUrl: string): string {
     </a>
     <div class="footer">Invite-only access</div>
   </div>
+  <script>
+  // #region agent log
+  fetch('http://127.0.0.1:7491/ingest/b035acca-eb67-4f39-9af0-01a46d30c284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b5fbe'},body:JSON.stringify({sessionId:'4b5fbe',location:'sign-in-page',message:'sign-in page loaded',data:{signInUrl:document.querySelector('.sign-in-btn')?.href,currentUrl:window.location.href},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+  // #endregion
+  </script>
 </body>
 </html>`;
 }
