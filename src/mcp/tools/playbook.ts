@@ -36,6 +36,11 @@ export function registerPlaybookTools(server: McpServer, ctx: OrgContext) {
         orderBy: [{ version: "desc" }, { createdAt: "desc" }],
       });
 
+      await logActivity(ctx, "playbook_get", {
+        agentRole: role.toLowerCase(),
+        metadata: { ruleCount: rules.length },
+      });
+
       if (rules.length === 0) {
         return {
           content: [

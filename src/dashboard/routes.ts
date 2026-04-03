@@ -366,7 +366,7 @@ dashboardRouter.get("/memories", async (req: Request, res: Response) => {
     <div class="filters">
       <select onchange="applyFilter('type', this.value)">
         <option value="">All types</option>
-        ${["decision", "pattern", "lesson", "prompt", "review", "debug", "config"]
+        ${["decision", "pattern", "lesson", "prompt", "review", "debug", "config", "design"]
           .map((t) => `<option value="${t}" ${type === t ? "selected" : ""}>${t}</option>`)
           .join("")}
       </select>
@@ -495,8 +495,10 @@ dashboardRouter.get("/activity", async (req: Request, res: Response) => {
 
 // ── Playbook ─────────────────────────────────────────────────────────
 
-dashboardRouter.get("/playbook", async (_req: Request, res: Response) => {
+dashboardRouter.get("/playbook", async (req: Request, res: Response) => {
   const { organizationId } = getLocals(res);
+  const editId = req.query.edit as string | undefined;
+  const msg = req.query.msg as string | undefined;
 
   const rules = await prisma.playbook.findMany({
     where: { organizationId },
@@ -514,24 +516,100 @@ dashboardRouter.get("/playbook", async (_req: Request, res: Response) => {
     .map(
       ([role, ruleList]) =>
         `<div class="card">
-          <h3>${role}</h3>
+          <h3>${role} <span style="color:var(--text-dim);font-weight:400;font-size:13px;">(${ruleList.length})</span></h3>
           ${ruleList
             .map(
               (r) =>
-                `<div class="rule">
-                  <span class="badge">v${r.version}</span>
-                  ${r.project ? `<span class="tag">${r.project.name}</span>` : '<span class="tag">global</span>'}
-                  <p>${escapeHtml(r.rule)}</p>
-                </div>`,
+                editId === r.id
+                  ? `<div class="rule" style="border-color:var(--accent);">
+                      <form method="POST" action="/dashboard/playbook/edit">
+                        <input type="hidden" name="id" value="${r.id}" />
+                        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                          <span class="badge">v${r.version}</span>
+                          ${r.project ? `<span class="tag">${r.project.name}</span>` : '<span class="tag">global</span>'}
+                        </div>
+                        <textarea name="rule" rows="4" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;line-height:1.5;resize:vertical;font-family:inherit;">${escapeHtml(r.rule)}</textarea>
+                        <div style="display:flex;gap:8px;margin-top:8px;">
+                          <button type="submit" style="padding:6px 14px;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Save</button>
+                          <a href="/dashboard/playbook" style="padding:6px 14px;background:var(--border);color:var(--text-dim);border-radius:6px;text-decoration:none;font-size:13px;">Cancel</a>
+                        </div>
+                      </form>
+                    </div>`
+                  : `<div class="rule">
+                      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                          <span class="badge">v${r.version}</span>
+                          ${r.project ? `<span class="tag">${r.project.name}</span>` : '<span class="tag">global</span>'}
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                          <a href="/dashboard/playbook?edit=${r.id}" style="color:var(--text-dim);font-size:12px;text-decoration:none;" title="Edit">✎</a>
+                          <form method="POST" action="/dashboard/playbook/delete" style="display:inline;" onsubmit="return confirm('Delete this rule?')">
+                            <input type="hidden" name="id" value="${r.id}" />
+                            <button type="submit" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:12px;" title="Delete">✕</button>
+                          </form>
+                        </div>
+                      </div>
+                      <p>${escapeHtml(r.rule)}</p>
+                    </div>`,
             )
             .join("")}
         </div>`,
     )
     .join("");
 
+  const banner = msg === "updated"
+    ? `<div style="background:var(--green);color:white;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-size:14px;">Rule updated successfully.</div>`
+    : msg === "deleted"
+    ? `<div style="background:var(--rose);color:white;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-size:14px;">Rule deleted.</div>`
+    : "";
+
   res.send(
-    renderPage("Playbook", sections || `<div class="card"><p>No playbook rules yet.</p></div>`),
+    renderPage("Playbook", `
+      ${banner}
+      <p style="color:var(--text-dim);margin-bottom:16px;">These rules are pulled by agents on activation. Edit or delete rules directly. Total: <strong>${rules.length}</strong> rules across <strong>${Object.keys(byRole).length}</strong> roles.</p>
+      ${sections || `<div class="card"><p>No playbook rules yet.</p></div>`}
+    `),
   );
+});
+
+dashboardRouter.post("/playbook/edit", async (req: Request, res: Response) => {
+  const { organizationId } = getLocals(res);
+  const id = req.body.id as string;
+  const rule = (req.body.rule as string)?.trim();
+
+  if (!id || !rule) {
+    res.redirect("/dashboard/playbook");
+    return;
+  }
+
+  const existing = await prisma.playbook.findFirst({
+    where: { id, organizationId },
+  });
+
+  if (existing) {
+    await prisma.playbook.update({
+      where: { id },
+      data: { rule, version: existing.version + 1 },
+    });
+  }
+
+  res.redirect("/dashboard/playbook?msg=updated");
+});
+
+dashboardRouter.post("/playbook/delete", async (req: Request, res: Response) => {
+  const { organizationId } = getLocals(res);
+  const id = req.body.id as string;
+
+  if (!id) {
+    res.redirect("/dashboard/playbook");
+    return;
+  }
+
+  await prisma.playbook.deleteMany({
+    where: { id, organizationId },
+  });
+
+  res.redirect("/dashboard/playbook?msg=deleted");
 });
 
 // ── Connect ──────────────────────────────────────────────────────────
