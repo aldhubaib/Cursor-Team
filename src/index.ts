@@ -286,8 +286,7 @@ function signInPage(publishableKey: string, clerkDomain: string): string {
         const el = document.getElementById('sign-in-widget');
         el.innerHTML = '';
         window.Clerk.mountSignIn(el, {
-          afterSignInUrl: '/dashboard',
-          afterSignUpUrl: '/dashboard',
+          forceRedirectUrl: '/dashboard',
           appearance: {
             variables: { colorPrimary: '#8b5cf6' },
             elements: { rootBox: { width: '100%' } }
